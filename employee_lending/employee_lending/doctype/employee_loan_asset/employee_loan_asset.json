@@ -1,0 +1,25 @@
+{
+ "actions": [],
+ "creation": "2026-09-04 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": ["asset_type","details","estimated_value"],
+ "fields": [
+  {"fieldname":"asset_type","fieldtype":"Select","in_list_view":1,"label":"Asset Type","options":"Recreation Leave\nLong Service Leave\nCash / Bank\nProperty\nOther","reqd":1},
+  {"fieldname":"details","fieldtype":"Data","in_list_view":1,"label":"Details"},
+  {"fieldname":"estimated_value","fieldtype":"Currency","in_list_view":1,"label":"Estimated Value","reqd":1}
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Employee Lending",
+ "name": "Employee Loan Asset",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

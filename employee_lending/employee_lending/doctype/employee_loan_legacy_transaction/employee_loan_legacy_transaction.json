@@ -1,0 +1,44 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "EL-LEGACY-TXN-.YYYY.-.#####",
+ "creation": "2026-09-15 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "source_key","legacy_import_batch","legacy_opening","loan_application","employee","employee_name","posting_date","transaction_type","journal_entry","principal_amount","interest_amount","debit","credit","against_account","remarks"
+ ],
+ "fields": [
+  {"fieldname":"source_key","fieldtype":"Data","hidden":1,"label":"Source Key","read_only":1,"unique":1},
+  {"fieldname":"legacy_import_batch","fieldtype":"Link","label":"Legacy Import Batch","options":"Employee Loan Legacy Import Batch","read_only":1,"reqd":1},
+  {"fieldname":"legacy_opening","fieldtype":"Link","label":"Legacy Opening","options":"Employee Loan Legacy Opening","read_only":1,"reqd":1},
+  {"fieldname":"loan_application","fieldtype":"Link","in_list_view":1,"label":"Employee Loan","options":"Employee Loan Application","read_only":1,"reqd":1},
+  {"fieldname":"employee","fieldtype":"Link","in_list_view":1,"label":"Employee","options":"Employee","read_only":1,"reqd":1},
+  {"fieldname":"employee_name","fieldtype":"Data","in_list_view":1,"label":"Employee Name","read_only":1},
+  {"fieldname":"posting_date","fieldtype":"Date","in_list_view":1,"label":"Posting Date","read_only":1,"reqd":1},
+  {"fieldname":"transaction_type","fieldtype":"Select","in_list_view":1,"label":"Transaction Type","options":"Opening\nAdditional Disbursement\nRepayment\nReversal\nAdjustment","read_only":1,"reqd":1},
+  {"fieldname":"journal_entry","fieldtype":"Link","in_list_view":1,"label":"Existing Journal Entry","options":"Journal Entry","read_only":1,"reqd":1},
+  {"fieldname":"principal_amount","fieldtype":"Currency","label":"Principal Amount","read_only":1},
+  {"fieldname":"interest_amount","fieldtype":"Currency","label":"Interest Amount","read_only":1},
+  {"fieldname":"debit","fieldtype":"Currency","label":"Loan Debit","read_only":1},
+  {"fieldname":"credit","fieldtype":"Currency","label":"Loan Credit","read_only":1},
+  {"fieldname":"against_account","fieldtype":"Small Text","label":"Against Account","read_only":1},
+  {"fieldname":"remarks","fieldtype":"Small Text","label":"Remarks","read_only":1}
+ ],
+ "links": [],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Employee Lending",
+ "name": "Employee Loan Legacy Transaction",
+ "owner": "Administrator",
+ "permissions": [
+  {"email":1,"export":1,"print":1,"read":1,"report":1,"role":"System Manager","share":1},
+  {"email":1,"export":1,"print":1,"read":1,"report":1,"role":"Accounts Manager","share":1},
+  {"email":1,"export":1,"print":1,"read":1,"report":1,"role":"Accounts User"}
+ ],
+ "search_fields": "employee,employee_name,journal_entry,loan_application",
+ "sort_field": "posting_date",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "journal_entry"
+}

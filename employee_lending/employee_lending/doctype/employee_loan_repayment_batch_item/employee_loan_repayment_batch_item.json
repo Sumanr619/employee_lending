@@ -1,0 +1,32 @@
+{
+ "actions": [],
+ "creation": "2026-09-04 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": ["loan_application","employee","employee_name","flat_interest_rate","repayment_amount","principal_component","interest_component","principal_outstanding_before","unearned_interest_before","total_outstanding_before","total_outstanding_after"],
+ "fields": [
+  {"fieldname":"loan_application","fieldtype":"Link","in_list_view":1,"label":"Employee Loan","options":"Employee Loan Application","reqd":1},
+  {"fieldname":"employee","fieldtype":"Link","label":"Employee","options":"Employee","read_only":1},
+  {"fieldname":"employee_name","fieldtype":"Data","in_list_view":1,"label":"Employee Name","read_only":1},
+  {"fieldname":"flat_interest_rate","fieldtype":"Percent","label":"Interest Rate","read_only":1},
+  {"fieldname":"repayment_amount","fieldtype":"Currency","in_list_view":1,"label":"Repayment Amount","reqd":1},
+  {"fieldname":"principal_component","fieldtype":"Currency","in_list_view":1,"label":"Principal","read_only":1},
+  {"fieldname":"interest_component","fieldtype":"Currency","in_list_view":1,"label":"Interest","read_only":1},
+  {"fieldname":"principal_outstanding_before","fieldtype":"Currency","label":"Principal Outstanding Before","read_only":1},
+  {"fieldname":"unearned_interest_before","fieldtype":"Currency","label":"Unearned Interest Before","read_only":1},
+  {"fieldname":"total_outstanding_before","fieldtype":"Currency","label":"Outstanding Before","read_only":1},
+  {"fieldname":"total_outstanding_after","fieldtype":"Currency","in_list_view":1,"label":"Outstanding After","read_only":1}
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Employee Lending",
+ "name": "Employee Loan Repayment Batch Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

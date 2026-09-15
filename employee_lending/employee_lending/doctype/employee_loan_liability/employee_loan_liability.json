@@ -1,0 +1,26 @@
+{
+ "actions": [],
+ "creation": "2026-09-04 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": ["liability_type","details","outstanding_amount","fortnightly_deduction"],
+ "fields": [
+  {"fieldname":"liability_type","fieldtype":"Select","in_list_view":1,"label":"Liability Type","options":"Staff Account\nHire Purchase\nBank Loan\nSupplier / Retailer\nOther","reqd":1},
+  {"fieldname":"details","fieldtype":"Data","in_list_view":1,"label":"Details"},
+  {"fieldname":"outstanding_amount","fieldtype":"Currency","in_list_view":1,"label":"Outstanding Amount","reqd":1},
+  {"fieldname":"fortnightly_deduction","fieldtype":"Currency","in_list_view":1,"label":"Fortnightly Deduction"}
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Employee Lending",
+ "name": "Employee Loan Liability",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+

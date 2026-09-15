@@ -1,0 +1,45 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-09-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["naming_series","posting_date","company","batch_reference","bank_or_clearing_account","proof_of_payment","repayments_section","repayments","totals_section","total_repayment_amount","total_principal_component","total_interest_component","accounting_section","journal_entry","remarks","amended_from"],
+ "fields": [
+  {"default":"EL-BATCH-.YYYY.-.#####","fieldname":"naming_series","fieldtype":"Select","label":"Series","options":"EL-BATCH-.YYYY.-.#####","reqd":1},
+  {"default":"Today","fieldname":"posting_date","fieldtype":"Date","in_list_view":1,"label":"Posting Date","reqd":1},
+  {"fieldname":"company","fieldtype":"Link","in_list_view":1,"label":"Company","options":"Company","read_only":1,"reqd":1},
+  {"fieldname":"batch_reference","fieldtype":"Data","in_list_view":1,"label":"Bank Batch / Deposit Reference","reqd":1},
+  {"fieldname":"bank_or_clearing_account","fieldtype":"Link","label":"Bank or Clearing Account","options":"Account","reqd":1},
+  {"fieldname":"proof_of_payment","fieldtype":"Attach","label":"Batch Deposit Proof"},
+  {"fieldname":"repayments_section","fieldtype":"Section Break","label":"Employee Repayments"},
+  {"fieldname":"repayments","fieldtype":"Table","label":"Repayments","options":"Employee Loan Repayment Batch Item","reqd":1},
+  {"fieldname":"totals_section","fieldtype":"Section Break","label":"Batch Totals"},
+  {"fieldname":"total_repayment_amount","fieldtype":"Currency","in_list_view":1,"label":"Total Repayment Amount","read_only":1},
+  {"fieldname":"total_principal_component","fieldtype":"Currency","label":"Total Principal Component","read_only":1},
+  {"fieldname":"total_interest_component","fieldtype":"Currency","label":"Total Interest Component","read_only":1},
+  {"fieldname":"accounting_section","fieldtype":"Section Break","label":"Accounting"},
+  {"fieldname":"journal_entry","fieldtype":"Link","label":"Consolidated Journal Entry","options":"Journal Entry","read_only":1},
+  {"fieldname":"remarks","fieldtype":"Small Text","label":"Remarks"},
+  {"fieldname":"amended_from","fieldtype":"Link","label":"Amended From","no_copy":1,"options":"Employee Loan Repayment Batch","print_hide":1,"read_only":1}
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-09-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Employee Lending",
+ "name": "Employee Loan Repayment Batch",
+ "owner": "Administrator",
+ "permissions": [
+  {"cancel":1,"create":1,"delete":1,"email":1,"export":1,"print":1,"read":1,"report":1,"role":"System Manager","share":1,"submit":1,"write":1},
+  {"cancel":1,"create":1,"delete":1,"email":1,"export":1,"print":1,"read":1,"report":1,"role":"Accounts Manager","share":1,"submit":1,"write":1},
+  {"create":1,"email":1,"print":1,"read":1,"report":1,"role":"Accounts User","share":1,"submit":1,"write":1}
+ ],
+ "search_fields": "batch_reference,journal_entry",
+ "sort_field": "posting_date",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "batch_reference"
+}
+

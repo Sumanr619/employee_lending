@@ -1,0 +1,35 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:product_name",
+ "creation": "2026-09-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["product_name","disabled","terms_section","tenure_months","number_of_fortnights","column_break_1","flat_interest_rate","description"],
+ "fields": [
+  {"fieldname":"product_name","fieldtype":"Data","in_list_view":1,"label":"Product Name","reqd":1,"unique":1},
+  {"default":"0","fieldname":"disabled","fieldtype":"Check","in_list_view":1,"label":"Disabled"},
+  {"fieldname":"terms_section","fieldtype":"Section Break","label":"Loan Terms"},
+  {"fieldname":"tenure_months","fieldtype":"Int","in_list_view":1,"label":"Tenure (Months)","reqd":1},
+  {"fieldname":"number_of_fortnights","fieldtype":"Int","in_list_view":1,"label":"Number of Fortnights","reqd":1},
+  {"fieldname":"column_break_1","fieldtype":"Column Break"},
+  {"fieldname":"flat_interest_rate","fieldtype":"Percent","in_list_view":1,"label":"Flat Interest Rate","reqd":1},
+  {"fieldname":"description","fieldtype":"Small Text","label":"Description"}
+ ],
+ "links": [],
+ "modified": "2026-09-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Employee Lending",
+ "name": "Employee Loan Product",
+ "owner": "Administrator",
+ "permissions": [
+  {"create":1,"delete":1,"email":1,"export":1,"print":1,"read":1,"report":1,"role":"System Manager","share":1,"write":1},
+  {"create":1,"read":1,"report":1,"role":"Accounts Manager","write":1},
+  {"read":1,"role":"Accounts User"}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "product_name"
+}
+

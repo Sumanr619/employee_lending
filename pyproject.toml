@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "employee_lending"
+version = "1.5.1"
+description = "Employee lending and repayment automation for ERPNext"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "Employee Lending"}]
+license = "MIT"
+dependencies = []
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["employee_lending*"]

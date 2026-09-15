@@ -1,0 +1,3 @@
+recursive-include employee_lending *.css *.csv *.html *.ico *.js *.json *.md *.png *.py *.svg *.txt
+recursive-exclude employee_lending *.pyc
+
