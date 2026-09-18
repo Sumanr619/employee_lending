@@ -1,0 +1,53 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-09-18 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series","status","employee","employee_name","company","cutoff_date","source_section","legacy_import_batch","source_row","source_reference","source_vouchers","amount_section","original_principal_credit","original_interest_credit","original_credit","column_break_amount","principal_credit_available","interest_credit_available","available_credit","applied_amount","refunded_amount","remarks"
+ ],
+ "fields": [
+  {"default":"EL-CREDIT-.YYYY.-.#####","fieldname":"naming_series","fieldtype":"Select","label":"Series","options":"EL-CREDIT-.YYYY.-.#####","reqd":1},
+  {"default":"Available","fieldname":"status","fieldtype":"Select","in_list_view":1,"label":"Status","options":"Available\nPartly Used\nApplied\nRefunded\nClosed","read_only":1},
+  {"fieldname":"employee","fieldtype":"Link","in_list_view":1,"label":"Employee","options":"Employee","read_only":1,"reqd":1},
+  {"fieldname":"employee_name","fieldtype":"Data","in_list_view":1,"label":"Employee Name","read_only":1},
+  {"fieldname":"company","fieldtype":"Link","label":"Company","options":"Company","read_only":1,"reqd":1},
+  {"fieldname":"cutoff_date","fieldtype":"Date","label":"Credit As At","read_only":1,"reqd":1},
+  {"fieldname":"source_section","fieldtype":"Section Break","label":"Source"},
+  {"fieldname":"legacy_import_batch","fieldtype":"Link","label":"Legacy Import Batch","options":"Employee Loan Legacy Import Batch","read_only":1},
+  {"fieldname":"source_row","fieldtype":"Int","label":"Source Row","read_only":1},
+  {"fieldname":"source_reference","fieldtype":"Data","label":"Source Reference","read_only":1,"reqd":1,"unique":1},
+  {"fieldname":"source_vouchers","fieldtype":"Long Text","label":"Existing Journal Entries","read_only":1},
+  {"fieldname":"amount_section","fieldtype":"Section Break","label":"Employee Credit"},
+  {"fieldname":"original_principal_credit","fieldtype":"Currency","label":"Original Principal Credit","read_only":1},
+  {"fieldname":"original_interest_credit","fieldtype":"Currency","label":"Original Interest Credit","read_only":1},
+  {"fieldname":"original_credit","fieldtype":"Currency","in_list_view":1,"label":"Original Credit","read_only":1},
+  {"fieldname":"column_break_amount","fieldtype":"Column Break"},
+  {"fieldname":"principal_credit_available","fieldtype":"Currency","label":"Principal Credit Available","read_only":1},
+  {"fieldname":"interest_credit_available","fieldtype":"Currency","label":"Interest Credit Available","read_only":1},
+  {"fieldname":"available_credit","fieldtype":"Currency","in_list_view":1,"label":"Available Credit","read_only":1},
+  {"fieldname":"applied_amount","fieldtype":"Currency","label":"Applied to Loans","read_only":1},
+  {"fieldname":"refunded_amount","fieldtype":"Currency","label":"Refunded","read_only":1},
+  {"fieldname":"remarks","fieldtype":"Small Text","label":"Remarks","read_only":1}
+ ],
+ "links": [
+  {"link_doctype":"Employee Loan Credit Adjustment","link_fieldname":"employee_credit"}
+ ],
+ "modified": "2026-09-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Employee Lending",
+ "name": "Employee Loan Credit",
+ "owner": "Administrator",
+ "permissions": [
+  {"create":1,"email":1,"export":1,"print":1,"read":1,"report":1,"role":"System Manager","share":1,"write":1},
+  {"create":1,"email":1,"export":1,"print":1,"read":1,"report":1,"role":"Accounts Manager","share":1,"write":1},
+  {"email":1,"export":1,"print":1,"read":1,"report":1,"role":"Accounts User"}
+ ],
+ "search_fields": "employee,employee_name,source_vouchers",
+ "sort_field": "cutoff_date",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "employee_name"
+}

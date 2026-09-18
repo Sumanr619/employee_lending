@@ -50,6 +50,18 @@ def prevent_orphaned_lending_entry(doc, method=None):
             )
         )
 
+    credit_adjustment = frappe.db.get_value(
+        "Employee Loan Credit Adjustment",
+        {"journal_entry": doc.name, "docstatus": 1},
+        "name",
+    )
+    if credit_adjustment:
+        frappe.throw(
+            _("Journal Entry {0} belongs to employee loan credit adjustment {1}. Cancel the adjustment instead.").format(
+                doc.name, credit_adjustment
+            )
+        )
+
     legacy_rows = frappe.db.sql(
         """
         select name

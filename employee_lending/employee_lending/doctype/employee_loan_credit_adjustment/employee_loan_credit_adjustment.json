@@ -1,0 +1,51 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-09-18 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series","employee_credit","adjustment_type","posting_date","employee","employee_name","company","credit_section","credit_available_before","amount","credit_available_after","source_principal_component","source_interest_component","destination_section","loan_application","bank_account","bank_reference","loan_principal_component","loan_interest_component","journal_entry","remarks","amended_from"
+ ],
+ "fields": [
+  {"default":"EL-CREDIT-ADJ-.YYYY.-.#####","fieldname":"naming_series","fieldtype":"Select","label":"Series","options":"EL-CREDIT-ADJ-.YYYY.-.#####","reqd":1},
+  {"fieldname":"employee_credit","fieldtype":"Link","in_list_view":1,"label":"Employee Credit","options":"Employee Loan Credit","reqd":1},
+  {"fieldname":"adjustment_type","fieldtype":"Select","in_list_view":1,"label":"Action","options":"Refund\nApply to Loan","reqd":1},
+  {"default":"Today","fieldname":"posting_date","fieldtype":"Date","in_list_view":1,"label":"Posting Date","reqd":1},
+  {"fieldname":"employee","fieldtype":"Link","label":"Employee","options":"Employee","read_only":1},
+  {"fieldname":"employee_name","fieldtype":"Data","label":"Employee Name","read_only":1},
+  {"fieldname":"company","fieldtype":"Link","label":"Company","options":"Company","read_only":1},
+  {"fieldname":"credit_section","fieldtype":"Section Break","label":"Credit Allocation"},
+  {"fieldname":"credit_available_before","fieldtype":"Currency","label":"Credit Available Before","read_only":1},
+  {"fieldname":"amount","fieldtype":"Currency","in_list_view":1,"label":"Amount","reqd":1},
+  {"fieldname":"credit_available_after","fieldtype":"Currency","label":"Credit Available After","read_only":1},
+  {"fieldname":"source_principal_component","fieldtype":"Currency","label":"Principal Credit Used","read_only":1},
+  {"fieldname":"source_interest_component","fieldtype":"Currency","label":"Interest Credit Used","read_only":1},
+  {"fieldname":"destination_section","fieldtype":"Section Break","label":"Destination"},
+  {"depends_on":"eval:doc.adjustment_type=='Apply to Loan'","fieldname":"loan_application","fieldtype":"Link","label":"Apply to Employee Loan","options":"Employee Loan Application"},
+  {"depends_on":"eval:doc.adjustment_type=='Refund'","fieldname":"bank_account","fieldtype":"Link","label":"Refund Bank Account","options":"Account"},
+  {"depends_on":"eval:doc.adjustment_type=='Refund'","fieldname":"bank_reference","fieldtype":"Data","label":"Bank Reference"},
+  {"fieldname":"loan_principal_component","fieldtype":"Currency","label":"Loan Principal Component","read_only":1},
+  {"fieldname":"loan_interest_component","fieldtype":"Currency","label":"Loan Interest Component","read_only":1},
+  {"fieldname":"journal_entry","fieldtype":"Link","in_list_view":1,"label":"Journal Entry","options":"Journal Entry","read_only":1},
+  {"fieldname":"remarks","fieldtype":"Small Text","label":"Remarks"},
+  {"fieldname":"amended_from","fieldtype":"Link","label":"Amended From","no_copy":1,"options":"Employee Loan Credit Adjustment","print_hide":1,"read_only":1}
+ ],
+ "is_submittable": 1,
+ "modified": "2026-09-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Employee Lending",
+ "name": "Employee Loan Credit Adjustment",
+ "owner": "Administrator",
+ "permissions": [
+  {"cancel":1,"create":1,"delete":1,"email":1,"export":1,"print":1,"read":1,"report":1,"role":"System Manager","share":1,"submit":1,"write":1},
+  {"cancel":1,"create":1,"delete":1,"email":1,"export":1,"print":1,"read":1,"report":1,"role":"Accounts Manager","share":1,"submit":1,"write":1},
+  {"email":1,"export":1,"print":1,"read":1,"report":1,"role":"Accounts User"}
+ ],
+ "search_fields": "employee,employee_name,employee_credit,loan_application,journal_entry",
+ "sort_field": "posting_date",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "employee_name"
+}

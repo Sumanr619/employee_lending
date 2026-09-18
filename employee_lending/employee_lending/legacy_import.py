@@ -61,6 +61,25 @@ def money(value):
     return Decimal(str(value)).quantize(MONEY, rounding=ROUND_HALF_UP)
 
 
+def calculate_credit_components(employee_gl):
+    """Return the net employee credit split without inventing extra value.
+
+    Principal credit is used first up to the employee's total net credit.  Any
+    remaining net credit is classified as interest credit.  Positive balances
+    in another component therefore offset, rather than inflate, the amount owed
+    back to the employee.
+    """
+    total_credit = money(max(Decimal("0.00"), -money(employee_gl["total_outstanding"])))
+    principal_credit = money(
+        min(total_credit, max(Decimal("0.00"), -money(employee_gl["staff_balance"])))
+    )
+    return {
+        "total_credit": total_credit,
+        "principal_credit": principal_credit,
+        "interest_credit": money(total_credit - principal_credit),
+    }
+
+
 def classify_outstanding_row(values, headers):
     employee = str(values[headers["employee"]] or "").strip()
     if not employee or normalize_header(employee) in ("total", "grand total"):
@@ -85,9 +104,12 @@ def classify_outstanding_row(values, headers):
 
     status = "Ready"
     message = ""
-    if reported <= Decimal("0.00"):
+    if reported < Decimal("0.00"):
         status = "Excluded"
-        message = "Credit or cleared balance"
+        message = "Employee overpayment / credit balance"
+    elif reported == Decimal("0.00"):
+        status = "Excluded"
+        message = "Cleared legacy loan"
     elif original_principal <= Decimal("0.00"):
         status = "Invalid"
         message = "Original principal must be greater than zero"
