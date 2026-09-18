@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "employee_lending"
-version = "1.5.1"
+version = "1.6.0"
 description = "Employee lending and repayment automation for ERPNext"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -1,0 +1,149 @@
+<style>
+	@page { size: A4 landscape; margin: 10mm; }
+	.loan-statement { color: #1f2937; font-size: 10px; line-height: 1.35; }
+	.loan-statement .statement-header { border-bottom: 2px solid #1f2937; display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; }
+	.loan-statement h1 { font-size: 22px; font-weight: 700; letter-spacing: .03em; margin: 0 0 3px; text-transform: uppercase; }
+	.loan-statement .company-name { font-size: 13px; font-weight: 600; }
+	.loan-statement .statement-as-at { text-align: right; }
+	.loan-statement .info-grid { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
+	.loan-statement .info-box { border: 1px solid #d1d5db; border-radius: 4px; padding: 8px 10px; }
+	.loan-statement .section-title { background: #eef2f7; font-size: 11px; font-weight: 700; letter-spacing: .04em; margin: -8px -10px 7px; padding: 5px 10px; text-transform: uppercase; }
+	.loan-statement .detail-grid { display: grid; gap: 3px 12px; grid-template-columns: 105px 1fr 105px 1fr; }
+	.loan-statement .label { color: #6b7280; }
+	.loan-statement .value { font-weight: 600; }
+	.loan-statement .summary-grid { display: grid; gap: 8px; grid-template-columns: repeat(4, 1fr); margin: 10px 0; }
+	.loan-statement .summary-card { border: 1px solid #cbd5e1; border-radius: 4px; padding: 7px 9px; }
+	.loan-statement .summary-card .amount { font-size: 14px; font-weight: 700; margin-top: 2px; }
+	.loan-statement table { border-collapse: collapse; margin-top: 8px; width: 100%; }
+	.loan-statement th, .loan-statement td { border: 1px solid #d1d5db; padding: 4px 6px; vertical-align: top; }
+	.loan-statement th { background: #e5e7eb; font-weight: 700; text-align: left; }
+	.loan-statement .numeric { text-align: right; white-space: nowrap; }
+	.loan-statement tfoot td { background: #f3f4f6; font-weight: 700; }
+	.loan-statement .statement-note { color: #4b5563; font-size: 9px; margin-top: 8px; }
+	.loan-statement .signature-grid { display: grid; gap: 42px; grid-template-columns: repeat(3, 1fr); margin-top: 30px; }
+	.loan-statement .signature-line { border-top: 1px solid #4b5563; padding-top: 4px; text-align: center; }
+	.loan-statement-warning { background: #fffbeb; border: 1px solid #d97706; color: #92400e; padding: 14px; }
+	@media print {
+		.loan-statement { font-size: 9px; }
+		.loan-statement tr, .loan-statement .info-box, .loan-statement .summary-card { break-inside: avoid; }
+	}
+</style>
+
+{% if (!data || !data.length) { %}
+	<div class="loan-statement-warning">
+		{%= __("No ledger transactions were found for the selected filters.") %}
+	</div>
+{% } else { %}
+	{% var loans = {}; %}
+	{% var total_debit = 0; %}
+	{% var total_credit = 0; %}
+	{% for (var i = 0; i < data.length; i++) { %}
+		{% loans[data[i].employee_loan || ""] = true; %}
+		{% total_debit += flt(data[i].debit); %}
+		{% total_credit += flt(data[i].credit); %}
+	{% } %}
+	{% var loan_count = Object.keys(loans).length; %}
+
+	{% if (!filters.employee_loan || loan_count !== 1) { %}
+		<div class="loan-statement-warning">
+			<strong>{%= __("Select one Employee Loan before printing this statement.") %}</strong><br>
+			{%= __("This prevents transactions belonging to different employees or loans from appearing on the same statement.") %}
+		</div>
+	{% } else { %}
+		{% var loan = data[0]; %}
+		{% var closing_balance = flt(data[data.length - 1].loan_balance); %}
+		{% var statement_date = filters.to_date || frappe.datetime.get_today(); %}
+		{% var currency_field = {fieldtype: "Currency"}; %}
+		{% var date_field = {fieldtype: "Date"}; %}
+
+		<div class="loan-statement">
+			<div class="statement-header">
+				<div>
+					<h1>{%= __("Employee Loan Statement") %}</h1>
+					<div class="company-name">{%= loan.company || filters.company || "" %}</div>
+				</div>
+				<div class="statement-as-at">
+					<div class="label">{%= __("Statement as at") %}</div>
+					<div class="value">{%= frappe.format(statement_date, date_field) %}</div>
+				</div>
+			</div>
+
+			<div class="info-grid">
+				<div class="info-box">
+					<div class="section-title">{%= __("Employee Details") %}</div>
+					<div class="detail-grid">
+						<div class="label">{%= __("Employee Name") %}</div><div class="value">{%= loan.employee_name || "" %}</div>
+						<div class="label">{%= __("Employee ID") %}</div><div class="value">{%= loan.employee || "" %}</div>
+						<div class="label">{%= __("Payroll Number") %}</div><div class="value">{%= loan.payroll_number || "-" %}</div>
+						<div class="label">{%= __("Department") %}</div><div class="value">{%= loan.department || "-" %}</div>
+						<div class="label">{%= __("Designation") %}</div><div class="value">{%= loan.designation || "-" %}</div>
+						<div class="label">{%= __("Company") %}</div><div class="value">{%= loan.company || filters.company || "" %}</div>
+					</div>
+				</div>
+
+				<div class="info-box">
+					<div class="section-title">{%= __("Loan Details") %}</div>
+					<div class="detail-grid">
+						<div class="label">{%= __("Loan Number") %}</div><div class="value">{%= loan.employee_loan || "" %}</div>
+						<div class="label">{%= __("Loan Product") %}</div><div class="value">{%= loan.loan_product || "-" %}</div>
+						<div class="label">{%= __("Status") %}</div><div class="value">{%= loan.loan_status || "-" %}</div>
+						<div class="label">{%= __("Disbursement Date") %}</div><div class="value">{%= loan.disbursement_date ? frappe.format(loan.disbursement_date, date_field) : "-" %}</div>
+						<div class="label">{%= __("Approved Principal") %}</div><div class="value">{%= frappe.format(loan.approved_principal || 0, currency_field) %}</div>
+						<div class="label">{%= __("Flat Interest Rate") %}</div><div class="value">{%= frappe.format(loan.flat_interest_rate || 0, {fieldtype: "Percent"}) %}</div>
+						<div class="label">{%= __("Total Interest") %}</div><div class="value">{%= frappe.format(loan.total_interest || 0, currency_field) %}</div>
+						<div class="label">{%= __("Fortnightly Repayment") %}</div><div class="value">{%= frappe.format(loan.fortnightly_repayment || 0, currency_field) %}</div>
+						<div class="label">{%= __("Total Amount Due") %}</div><div class="value">{%= frappe.format(loan.total_amount_due || 0, currency_field) %}</div>
+						<div class="label">{%= __("Number of Fortnights") %}</div><div class="value">{%= loan.number_of_fortnights || "-" %}</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="summary-grid">
+				<div class="summary-card"><div class="label">{%= __("Opening / Disbursements") %}</div><div class="amount">{%= frappe.format(total_debit, currency_field) %}</div></div>
+				<div class="summary-card"><div class="label">{%= __("Repayments / Credits") %}</div><div class="amount">{%= frappe.format(total_credit, currency_field) %}</div></div>
+				<div class="summary-card"><div class="label">{%= __("Closing Loan Balance") %}</div><div class="amount">{%= frappe.format(closing_balance, currency_field) %}</div></div>
+				<div class="summary-card"><div class="label">{%= __("Current Total Repaid") %}</div><div class="amount">{%= frappe.format(loan.total_repaid || total_credit, currency_field) %}</div></div>
+			</div>
+
+			<table>
+				<thead><tr>
+					<th style="width: 10%">{%= __("Date") %}</th>
+					<th style="width: 28%">{%= __("Description") %}</th>
+					<th style="width: 17%">{%= __("Voucher") %}</th>
+					<th style="width: 12%">{%= __("Source") %}</th>
+					<th class="numeric" style="width: 11%">{%= __("Debit") %}</th>
+					<th class="numeric" style="width: 11%">{%= __("Credit") %}</th>
+					<th class="numeric" style="width: 11%">{%= __("Balance") %}</th>
+				</tr></thead>
+				<tbody>
+					{% for (var j = 0; j < data.length; j++) { %}
+						<tr>
+							<td>{%= frappe.format(data[j].posting_date, date_field) %}</td>
+							<td>{%= data[j].remarks || data[j].voucher_type || "" %}</td>
+							<td>{%= data[j].voucher_no || "" %}</td>
+							<td>{%= data[j].entry_source || "" %}</td>
+							<td class="numeric">{%= flt(data[j].debit) ? frappe.format(data[j].debit, currency_field) : "-" %}</td>
+							<td class="numeric">{%= flt(data[j].credit) ? frappe.format(data[j].credit, currency_field) : "-" %}</td>
+							<td class="numeric">{%= frappe.format(data[j].loan_balance || 0, currency_field) %}</td>
+						</tr>
+					{% } %}
+				</tbody>
+				<tfoot><tr>
+					<td colspan="4">{%= __("Totals / Closing Balance") %}</td>
+					<td class="numeric">{%= frappe.format(total_debit, currency_field) %}</td>
+					<td class="numeric">{%= frappe.format(total_credit, currency_field) %}</td>
+					<td class="numeric">{%= frappe.format(closing_balance, currency_field) %}</td>
+				</tr></tfoot>
+			</table>
+
+			<div class="statement-note">
+				{%= __("This statement reflects posted employee-loan ledger transactions up to the selected statement date. Debit entries increase the loan balance; credit entries reduce it.") %}
+			</div>
+			<div class="signature-grid">
+				<div class="signature-line">{%= __("Prepared By / Date") %}</div>
+				<div class="signature-line">{%= __("Checked By / Date") %}</div>
+				<div class="signature-line">{%= __("Employee Acknowledgement / Date") %}</div>
+			</div>
+		</div>
+	{% } %}
+{% } %}

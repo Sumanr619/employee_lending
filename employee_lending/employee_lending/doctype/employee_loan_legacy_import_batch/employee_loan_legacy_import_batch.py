@@ -10,6 +10,7 @@ from frappe.utils import flt, now, nowdate
 from employee_lending.employee_lending.doctype.employee_lending_settings.employee_lending_settings import get_settings
 from employee_lending.employee_lending.legacy_import import (
     aggregate_gl_rows,
+    calculate_credit_components,
     classify_outstanding_row,
     map_gl_headers,
     map_headers,
@@ -359,6 +360,104 @@ def retry_failed_rows(batch_name):
         batch_name=batch.name,
     )
     return {"status": "Queued"}
+
+
+@frappe.whitelist()
+def import_excluded_credits(batch_name):
+    """Register legacy overpayments without reposting their existing GL entries.
+
+    A unique source reference per batch row makes this safe to run repeatedly.
+    Cleared K0 rows remain excluded because they do not represent money owed to
+    an employee.
+    """
+    batch = frappe.get_doc("Employee Loan Legacy Import Batch", batch_name)
+    batch.check_permission("submit")
+    if batch.docstatus != 1 or batch.status not in ("Completed", "Completed with Errors"):
+        frappe.throw(_("Employee credits can only be imported from a completed submitted batch"))
+
+    settings = get_settings()
+    gl_by_employee = read_gl_file(batch.gl_source_file, settings, batch.cutoff_date)
+    rows = frappe.get_all(
+        "Employee Loan Legacy Import Row",
+        filters={"parent": batch.name, "validation_status": "Excluded"},
+        fields=["*"],
+        order_by="idx",
+    )
+    imported = 0
+    imported_amount = 0
+    for row in rows:
+        employee_gl = gl_by_employee.get(row.employee)
+        if not employee_gl:
+            continue
+        components = calculate_credit_components(employee_gl)
+        total_credit = flt(components["total_credit"], 2)
+        if total_credit <= 0.005:
+            continue
+
+        source_reference = "{0}|{1}|{2}".format(batch.name, row.row_number, row.employee)[:140]
+        existing = frappe.db.get_value(
+            "Employee Loan Credit", {"source_reference": source_reference}, "name"
+        )
+        if existing:
+            frappe.db.set_value(
+                "Employee Loan Legacy Import Row",
+                row.name,
+                "employee_credit",
+                existing,
+                update_modified=False,
+            )
+            continue
+
+        principal_credit = flt(components["principal_credit"], 2)
+        interest_credit = flt(components["interest_credit"], 2)
+        credit = frappe.get_doc(
+            {
+                "doctype": "Employee Loan Credit",
+                "employee": row.employee,
+                "cutoff_date": batch.cutoff_date,
+                "legacy_import_batch": batch.name,
+                "source_row": row.row_number,
+                "source_reference": source_reference,
+                "source_vouchers": "\n".join(employee_gl["source_vouchers"]),
+                "original_principal_credit": principal_credit,
+                "original_interest_credit": interest_credit,
+                "principal_credit_available": principal_credit,
+                "interest_credit_available": interest_credit,
+                "remarks": _(
+                    "Existing GL overpayment registered from legacy batch {0}; no GL entry posted"
+                ).format(batch.name),
+            }
+        )
+        credit.insert(ignore_permissions=True)
+        frappe.db.set_value(
+            "Employee Loan Legacy Import Row",
+            row.name,
+            "employee_credit",
+            credit.name,
+            update_modified=False,
+        )
+        imported += 1
+        imported_amount = flt(imported_amount + total_credit, 2)
+
+    totals = frappe.db.sql(
+        """
+        select count(*) as row_count, coalesce(sum(original_credit), 0) as amount
+          from `tabEmployee Loan Credit`
+         where legacy_import_batch = %s
+        """,
+        batch.name,
+        as_dict=True,
+    )[0]
+    frappe.db.set_value(
+        "Employee Loan Legacy Import Batch",
+        batch.name,
+        {
+            "imported_credit_rows": totals.row_count,
+            "imported_credit_amount": totals.amount,
+        },
+        update_modified=False,
+    )
+    return {"imported": imported, "amount": imported_amount}
 
 
 def process_batch(batch_name):

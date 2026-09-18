@@ -6,7 +6,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "naming_series","status","company","source_section","cutoff_date","next_repayment_date","source_reference","source_file","gl_source_file","control_section","confirm_no_bank_posting","rows_section","rows","totals_section","total_rows","ready_rows","excluded_rows","invalid_rows","ready_principal_outstanding","ready_interest_outstanding","ready_total_outstanding","column_break_totals","source_opening_vouchers","source_repayment_allocations","processed_rows","failed_rows","started_on","completed_on","amended_from"
+  "naming_series","status","company","source_section","cutoff_date","next_repayment_date","source_reference","source_file","gl_source_file","control_section","confirm_no_bank_posting","rows_section","rows","totals_section","total_rows","ready_rows","excluded_rows","invalid_rows","ready_principal_outstanding","ready_interest_outstanding","ready_total_outstanding","column_break_totals","source_opening_vouchers","source_repayment_allocations","processed_rows","failed_rows","imported_credit_rows","imported_credit_amount","started_on","completed_on","amended_from"
  ],
  "fields": [
   {"default":"EL-LEGACY-BATCH-.YYYY.-.#####","fieldname":"naming_series","fieldtype":"Select","label":"Series","options":"EL-LEGACY-BATCH-.YYYY.-.#####","reqd":1},
@@ -35,6 +35,8 @@
   {"fieldname":"source_repayment_allocations","fieldtype":"Int","label":"Historical Repayment Allocations","read_only":1},
   {"fieldname":"processed_rows","fieldtype":"Int","label":"Processed","read_only":1},
   {"fieldname":"failed_rows","fieldtype":"Int","label":"Failed","read_only":1},
+  {"fieldname":"imported_credit_rows","fieldtype":"Int","label":"Imported Employee Credits","read_only":1},
+  {"fieldname":"imported_credit_amount","fieldtype":"Currency","label":"Imported Credit Amount","read_only":1},
   {"fieldname":"started_on","fieldtype":"Datetime","label":"Started On","read_only":1},
   {"fieldname":"completed_on","fieldtype":"Datetime","label":"Completed On","read_only":1},
   {"fieldname":"amended_from","fieldtype":"Link","label":"Amended From","no_copy":1,"options":"Employee Loan Legacy Import Batch","print_hide":1,"read_only":1}
