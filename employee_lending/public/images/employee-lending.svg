@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Employee Lending</title>
+  <rect width="64" height="64" rx="14" fill="#6b7280"/>
+  <path d="M14 26h36M18 26v20M27 26v20M37 26v20M46 26v20M14 46h36M12 51h40M32 12l20 10H12l20-10z" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

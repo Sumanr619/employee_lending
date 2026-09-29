@@ -1,0 +1,15 @@
+{
+ "app": "employee_lending",
+ "bg_color": "gray",
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "landmark",
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "Employee Lending",
+ "link_to": "Employee Lending",
+ "link_type": "Workspace Sidebar",
+ "name": "Employee Lending",
+ "sidebar": "Employee Lending",
+ "standard": 1
+}
