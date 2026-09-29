@@ -1,5 +1,6 @@
 import frappe
 from frappe import _
+from frappe.utils import flt
 
 from employee_lending.employee_lending.doctype.employee_lending_settings.employee_lending_settings import get_settings
 
@@ -101,23 +102,39 @@ def create_batch_repayment_journal(batch):
     journal.finance_book = settings.finance_book
     journal.cheque_no = batch.batch_reference
     journal.cheque_date = batch.posting_date
-    journal.user_remark = _("Consolidated employee loan repayment batch {0} - {1} employee loan(s)").format(
+    system_remark = _("Consolidated employee loan repayment batch {0} - {1} employee loan(s)").format(
         batch.name, len(batch.repayments)
+    )
+    journal.user_remark = (
+        "{0} - {1}".format(system_remark, batch.remarks)
+        if batch.remarks
+        else system_remark
     )
     journal.append("accounts", _account_row(debit_account, debit=batch.total_repayment_amount))
     for repayment in batch.repayments:
         reference_type, reference_name = _loan_journal_reference(repayment.loan_application)
-        journal.append(
-            "accounts",
-            _account_row(
-                settings.staff_loan_receivable_account,
-                credit=repayment.repayment_amount,
-                reference_type=reference_type,
-                reference_name=reference_name,
-                party_type="Employee",
-                party=repayment.employee,
-            ),
-        )
+        if flt(repayment.applied_amount, 2):
+            journal.append(
+                "accounts",
+                _account_row(
+                    settings.staff_loan_receivable_account,
+                    credit=repayment.applied_amount,
+                    reference_type=reference_type,
+                    reference_name=reference_name,
+                    party_type="Employee",
+                    party=repayment.employee,
+                ),
+            )
+        if flt(repayment.credit_amount, 2):
+            journal.append(
+                "accounts",
+                _account_row(
+                    settings.staff_loan_receivable_account,
+                    credit=repayment.credit_amount,
+                    party_type="Employee",
+                    party=repayment.employee,
+                ),
+            )
     if batch.total_interest_component:
         for repayment in batch.repayments:
             if not repayment.interest_component:
@@ -161,8 +178,13 @@ def create_repayment_journal(repayment, loan):
     journal.finance_book = settings.finance_book
     journal.cheque_no = repayment.bank_reference
     journal.cheque_date = repayment.posting_date if repayment.bank_reference else None
-    journal.user_remark = _("Employee loan repayment {0} against {1} for {2}").format(
+    system_remark = _("Employee loan repayment {0} against {1} for {2}").format(
         repayment.name, loan.name, loan.employee_name
+    )
+    journal.user_remark = (
+        "{0} - {1}".format(system_remark, repayment.remarks)
+        if repayment.remarks
+        else system_remark
     )
     reference_type, reference_name = _loan_journal_reference(
         loan.name, loan.disbursement_journal_entry
@@ -172,32 +194,43 @@ def create_repayment_journal(repayment, loan):
         "accounts",
         _account_row(
             settings.staff_loan_receivable_account,
-            credit=repayment.repayment_amount,
+            credit=repayment.applied_amount,
             reference_type=reference_type,
             reference_name=reference_name,
             party_type="Employee",
             party=loan.employee,
         ),
     )
-    journal.append(
-        "accounts",
-        _account_row(
-            settings.unearned_interest_account,
-            debit=repayment.interest_component,
-            reference_type=reference_type,
-            reference_name=reference_name,
-            party_type="Employee",
-            party=loan.employee,
-        ),
-    )
-    journal.append(
-        "accounts",
-        _account_row(
-            settings.interest_income_account,
-            credit=repayment.interest_component,
-            cost_center=settings.default_cost_center,
-        ),
-    )
+    if flt(repayment.credit_amount, 2):
+        journal.append(
+            "accounts",
+            _account_row(
+                settings.staff_loan_receivable_account,
+                credit=repayment.credit_amount,
+                party_type="Employee",
+                party=loan.employee,
+            ),
+        )
+    if flt(repayment.interest_component, 2):
+        journal.append(
+            "accounts",
+            _account_row(
+                settings.unearned_interest_account,
+                debit=repayment.interest_component,
+                reference_type=reference_type,
+                reference_name=reference_name,
+                party_type="Employee",
+                party=loan.employee,
+            ),
+        )
+        journal.append(
+            "accounts",
+            _account_row(
+                settings.interest_income_account,
+                credit=repayment.interest_component,
+                cost_center=settings.default_cost_center,
+            ),
+        )
     journal.insert(ignore_permissions=True)
     journal.flags.ignore_permissions = True
     journal.submit()

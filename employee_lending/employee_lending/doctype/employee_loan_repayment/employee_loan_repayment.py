@@ -5,6 +5,10 @@ from frappe.utils import flt, nowdate
 
 from employee_lending.employee_lending.accounting import cancel_linked_journal_entry, create_repayment_journal
 from employee_lending.employee_lending.doctype.employee_lending_settings.employee_lending_settings import get_settings
+from employee_lending.employee_lending.doctype.employee_loan_credit.employee_loan_credit import (
+    create_repayment_credit,
+    delete_unused_repayment_credit,
+)
 from employee_lending.employee_lending.utils import split_repayment
 
 
@@ -27,11 +31,38 @@ class EmployeeLoanRepayment(Document):
         loan = frappe.get_doc("Employee Loan Application", self.loan_application)
         journal = create_repayment_journal(self, loan)
         self.db_set("journal_entry", journal.name, update_modified=False)
+        if flt(self.credit_amount, 2):
+            credit_name = create_repayment_credit(
+                employee=loan.employee,
+                posting_date=self.posting_date,
+                source_reference="repayment:{0}".format(self.name),
+                journal_entry=journal.name,
+                amount=self.credit_amount,
+                remarks=self.remarks
+                or _("Overpayment from employee loan repayment {0}").format(self.name),
+            )
+            self.db_set("employee_credit", credit_name, update_modified=False)
         self.update_loan_balances(direction=1)
 
     def on_cancel(self):
+        credit_name = self.employee_credit
+        if credit_name:
+            adjustment = frappe.db.get_value(
+                "Employee Loan Credit Adjustment",
+                {"employee_credit": credit_name, "docstatus": 1},
+                "name",
+            )
+            if adjustment:
+                frappe.throw(
+                    _("Employee credit {0} has already been used. Cancel adjustment {1} first.").format(
+                        credit_name, adjustment
+                    )
+                )
         cancel_linked_journal_entry(self.journal_entry)
         self.update_loan_balances(direction=-1)
+        if credit_name:
+            self.db_set("employee_credit", None, update_modified=False)
+            delete_unused_repayment_credit(credit_name)
 
     def set_loan_details(self, lock=False):
         if not self.loan_application:
@@ -79,16 +110,20 @@ class EmployeeLoanRepayment(Document):
             frappe.throw(_("Repayment Amount must be greater than zero"))
         if flt(self.total_outstanding_before) <= 0:
             frappe.throw(_("The selected loan has no outstanding balance"))
+        received_amount = flt(self.repayment_amount, 2)
+        applied_amount = min(received_amount, flt(self.total_outstanding_before, 2))
         try:
             split = split_repayment(
-                self.repayment_amount,
+                applied_amount,
                 self.flat_interest_rate,
                 self.principal_outstanding_before,
                 self.unearned_interest_before,
             )
         except ValueError as exc:
             frappe.throw(str(exc))
-        self.repayment_amount = float(split.amount)
+        self.repayment_amount = received_amount
+        self.applied_amount = float(split.amount)
+        self.credit_amount = flt(received_amount - applied_amount, 2)
         self.principal_component = float(split.principal)
         self.interest_component = float(split.interest)
         self.principal_outstanding_after = flt(self.principal_outstanding_before - self.principal_component, 2)
@@ -127,10 +162,10 @@ class EmployeeLoanRepayment(Document):
         loan = rows[0]
         principal_outstanding = flt(loan.principal_outstanding - direction * self.principal_component, 2)
         interest_outstanding = flt(loan.unearned_interest_outstanding - direction * self.interest_component, 2)
-        total_outstanding = flt(loan.total_outstanding - direction * self.repayment_amount, 2)
+        total_outstanding = flt(loan.total_outstanding - direction * self.applied_amount, 2)
         principal_recovered = flt(loan.principal_recovered + direction * self.principal_component, 2)
         interest_earned = flt(loan.interest_earned + direction * self.interest_component, 2)
-        total_repaid = flt(loan.total_repaid + direction * self.repayment_amount, 2)
+        total_repaid = flt(loan.total_repaid + direction * self.applied_amount, 2)
 
         values = {
             "principal_outstanding": max(0, principal_outstanding),
@@ -195,6 +230,8 @@ def get_active_loan_details(loan_application):
         "flat_interest_rate": loan.flat_interest_rate,
         "normal_fortnightly_repayment": loan.fortnightly_repayment,
         "repayment_amount": float(split.amount),
+        "applied_amount": float(split.amount),
+        "credit_amount": 0,
         "principal_component": float(split.principal),
         "interest_component": float(split.interest),
         "principal_outstanding_before": loan.principal_outstanding,
