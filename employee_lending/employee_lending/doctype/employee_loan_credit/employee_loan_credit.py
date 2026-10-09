@@ -39,6 +39,57 @@ class EmployeeLoanCredit(Document):
         )
 
 
+def create_repayment_credit(
+    *, employee, posting_date, source_reference, journal_entry, amount, remarks=None
+):
+    """Register the unapplied part of a repayment as employee credit.
+
+    The Journal Entry already posts this amount as an unallocated party credit,
+    so this function creates only the operational credit register record.
+    """
+    amount = flt(amount, 2)
+    if amount <= 0:
+        return None
+    existing = frappe.db.get_value(
+        "Employee Loan Credit", {"source_reference": source_reference}, "name"
+    )
+    if existing:
+        return existing
+    credit = frappe.get_doc(
+        {
+            "doctype": "Employee Loan Credit",
+            "employee": employee,
+            "cutoff_date": posting_date,
+            "source_reference": source_reference,
+            "source_vouchers": journal_entry,
+            "original_principal_credit": amount,
+            "original_interest_credit": 0,
+            "principal_credit_available": amount,
+            "interest_credit_available": 0,
+            "remarks": remarks or _("Repayment overpayment held as employee credit"),
+        }
+    )
+    credit.insert(ignore_permissions=True)
+    return credit.name
+
+
+def delete_unused_repayment_credit(credit_name):
+    if not credit_name or not frappe.db.exists("Employee Loan Credit", credit_name):
+        return
+    adjustment = frappe.db.get_value(
+        "Employee Loan Credit Adjustment",
+        {"employee_credit": credit_name, "docstatus": 1},
+        "name",
+    )
+    if adjustment:
+        frappe.throw(
+            _("Employee credit {0} has already been used by adjustment {1}. Cancel that adjustment first.").format(
+                credit_name, adjustment
+            )
+        )
+    frappe.delete_doc("Employee Loan Credit", credit_name, ignore_permissions=True)
+
+
 def refresh_credit_totals(credit_name):
     rows = frappe.db.sql(
         """

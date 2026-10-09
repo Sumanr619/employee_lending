@@ -8,6 +8,16 @@ app_license = "MIT"
 required_apps = ["erpnext"]
 
 after_install = "employee_lending.install.after_install"
+after_migrate = "employee_lending.install.after_migrate"
+
+add_to_apps_screen = [
+    {
+        "name": "employee_lending",
+        "logo": "/assets/employee_lending/images/employee-lending.svg",
+        "title": "Employee Lending",
+        "route": "/desk/employee-lending",
+    }
+]
 
 doctype_js = {
     "Employee Lending Settings": "public/js/employee_lending_settings.js",

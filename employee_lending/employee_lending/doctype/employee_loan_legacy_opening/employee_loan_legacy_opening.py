@@ -28,6 +28,8 @@ class EmployeeLoanLegacyOpening(Document):
     def before_submit(self):
         if not self.confirm_no_bank_posting:
             frappe.throw(_("Confirm that the legacy conversion must not post any Bank movement"))
+        if not self.source_gl_exists_in_target and not self.confirm_fresh_target:
+            frappe.throw(_("Confirm that the target site has no source loan GL entries"))
         self.validate_existing_module_loan(lock=True)
         self.load_and_validate_gl(lock=True)
 
@@ -46,7 +48,11 @@ class EmployeeLoanLegacyOpening(Document):
             update_modified=False,
         )
         self.db_set("loan_application", loan.name, update_modified=False)
-        self.db_set("cleanup_journal_entry", cleanup.name, update_modified=False)
+        self.db_set(
+            "cleanup_journal_entry",
+            cleanup.name if cleanup else None,
+            update_modified=False,
+        )
         self.db_set("conversion_journal_entry", journal.name, update_modified=False)
         self.db_set("status", "Processed", update_modified=False)
 
@@ -172,6 +178,12 @@ class EmployeeLoanLegacyOpening(Document):
 
     def load_and_validate_gl(self, lock=False):
         if not self.employee or not self.cutoff_date:
+            return
+        if not self.source_gl_exists_in_target:
+            # The source workbook remains the reconciliation authority, but a
+            # fresh target has no legacy GL to validate or reverse.
+            self.current_staff_loan_balance = 0
+            self.current_unearned_interest_debit = 0
             return
         settings = get_settings()
         accounts = (settings.staff_loan_receivable_account, settings.unearned_interest_account)

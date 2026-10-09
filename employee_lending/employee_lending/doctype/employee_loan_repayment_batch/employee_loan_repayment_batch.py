@@ -10,6 +10,10 @@ from employee_lending.employee_lending.accounting import (
     create_batch_repayment_journal,
 )
 from employee_lending.employee_lending.doctype.employee_lending_settings.employee_lending_settings import get_settings
+from employee_lending.employee_lending.doctype.employee_loan_credit.employee_loan_credit import (
+    create_repayment_credit,
+    delete_unused_repayment_credit,
+)
 from employee_lending.employee_lending.doctype.employee_loan_repayment.employee_loan_repayment import rebuild_schedule_status
 from employee_lending.employee_lending.utils import money, split_repayment
 
@@ -51,11 +55,55 @@ class EmployeeLoanRepaymentBatch(Document):
     def on_submit(self):
         journal = create_batch_repayment_journal(self)
         self.db_set("journal_entry", journal.name, update_modified=False)
+        for row in self.repayments:
+            if not flt(row.credit_amount, 2):
+                continue
+            credit_name = create_repayment_credit(
+                employee=row.employee,
+                posting_date=self.posting_date,
+                source_reference="repayment-batch:{0}:{1}".format(self.name, row.idx),
+                journal_entry=journal.name,
+                amount=row.credit_amount,
+                remarks=self.remarks
+                or _("Overpayment from repayment batch {0}, row {1}").format(self.name, row.idx),
+            )
+            frappe.db.set_value(
+                "Employee Loan Repayment Batch Item",
+                row.name,
+                "employee_credit",
+                credit_name,
+                update_modified=False,
+            )
         self.update_loan_balances(direction=1)
 
     def on_cancel(self):
+        credit_names = [row.employee_credit for row in self.repayments if row.employee_credit]
+        for credit_name in credit_names:
+            adjustment = frappe.db.get_value(
+                "Employee Loan Credit Adjustment",
+                {"employee_credit": credit_name, "docstatus": 1},
+                "name",
+            )
+            if adjustment:
+                frappe.throw(
+                    _("Employee credit {0} has already been used. Cancel adjustment {1} first.").format(
+                        credit_name, adjustment
+                    )
+                )
         cancel_linked_journal_entry(self.journal_entry)
         self.update_loan_balances(direction=-1)
+        for row in self.repayments:
+            if not row.employee_credit:
+                continue
+            credit_name = row.employee_credit
+            frappe.db.set_value(
+                "Employee Loan Repayment Batch Item",
+                row.name,
+                "employee_credit",
+                None,
+                update_modified=False,
+            )
+            delete_unused_repayment_credit(credit_name)
 
     def set_defaults(self):
         settings = get_settings()
@@ -101,15 +149,19 @@ class EmployeeLoanRepaymentBatch(Document):
             loans[loan_name] = loan
 
         total_repayment = Decimal("0")
+        total_applied = Decimal("0")
         total_principal = Decimal("0")
         total_interest = Decimal("0")
+        total_credit = Decimal("0")
         for row in self.repayments:
             loan = loans[row.loan_application]
             if flt(row.repayment_amount) <= 0:
                 frappe.throw(_("Row {0}: Repayment Amount must be greater than zero").format(row.idx))
+            received_amount = money(row.repayment_amount)
+            applied_amount = min(received_amount, money(loan.total_outstanding))
             try:
                 split = split_repayment(
-                    row.repayment_amount,
+                    applied_amount,
                     loan.flat_interest_rate,
                     loan.principal_outstanding,
                     loan.unearned_interest_outstanding,
@@ -119,20 +171,26 @@ class EmployeeLoanRepaymentBatch(Document):
             row.employee = loan.employee
             row.employee_name = loan.employee_name
             row.flat_interest_rate = loan.flat_interest_rate
-            row.repayment_amount = float(split.amount)
+            row.repayment_amount = float(received_amount)
+            row.applied_amount = float(split.amount)
+            row.credit_amount = float(money(received_amount - applied_amount))
             row.principal_component = float(split.principal)
             row.interest_component = float(split.interest)
             row.principal_outstanding_before = loan.principal_outstanding
             row.unearned_interest_before = loan.unearned_interest_outstanding
             row.total_outstanding_before = loan.total_outstanding
             row.total_outstanding_after = flt(loan.total_outstanding - float(split.amount), 2)
-            total_repayment += split.amount
+            total_repayment += received_amount
+            total_applied += split.amount
             total_principal += split.principal
             total_interest += split.interest
+            total_credit += money(received_amount - applied_amount)
 
         self.total_repayment_amount = float(money(total_repayment))
+        self.total_applied_amount = float(money(total_applied))
         self.total_principal_component = float(money(total_principal))
         self.total_interest_component = float(money(total_interest))
+        self.total_credit_amount = float(money(total_credit))
 
     def update_loan_balances(self, direction):
         for row in sorted(self.repayments, key=lambda item: item.loan_application):
@@ -146,10 +204,10 @@ class EmployeeLoanRepaymentBatch(Document):
             loan = result[0]
             principal_outstanding = flt(loan.principal_outstanding - direction * row.principal_component, 2)
             interest_outstanding = flt(loan.unearned_interest_outstanding - direction * row.interest_component, 2)
-            total_outstanding = flt(loan.total_outstanding - direction * row.repayment_amount, 2)
+            total_outstanding = flt(loan.total_outstanding - direction * row.applied_amount, 2)
             principal_recovered = flt(loan.principal_recovered + direction * row.principal_component, 2)
             interest_earned = flt(loan.interest_earned + direction * row.interest_component, 2)
-            total_repaid = flt(loan.total_repaid + direction * row.repayment_amount, 2)
+            total_repaid = flt(loan.total_repaid + direction * row.applied_amount, 2)
             values = {
                 "principal_outstanding": max(0, principal_outstanding),
                 "unearned_interest_outstanding": max(0, interest_outstanding),
@@ -177,6 +235,8 @@ def _serialize_loan(loan):
         "employee_name": loan.employee_name,
         "flat_interest_rate": loan.flat_interest_rate,
         "repayment_amount": float(split.amount),
+        "applied_amount": float(split.amount),
+        "credit_amount": 0,
         "principal_component": float(split.principal),
         "interest_component": float(split.interest),
         "principal_outstanding_before": loan.principal_outstanding,

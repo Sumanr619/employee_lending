@@ -40,19 +40,23 @@ frappe.ui.form.on("Employee Loan Repayment", {
                 if (!r.message) return;
                 const rate = flt(r.message.flat_interest_rate);
                 const total = flt(frm.doc.repayment_amount);
-                let principal = flt(total * 100 / (100 + rate), 2);
-                let interest = flt(total - principal, 2);
-                if (total === flt(r.message.total_outstanding_before)) {
+                const outstanding = flt(r.message.total_outstanding_before, 2);
+                const applied = Math.min(total, outstanding);
+                const credit = flt(Math.max(0, total - applied), 2);
+                let principal = flt(applied * 100 / (100 + rate), 2);
+                let interest = flt(applied - principal, 2);
+                if (applied === outstanding) {
                     principal = flt(r.message.principal_outstanding_before, 2);
                     interest = flt(r.message.unearned_interest_before, 2);
                 }
+                frm.set_value("applied_amount", applied);
+                frm.set_value("credit_amount", credit);
                 frm.set_value("principal_component", principal);
                 frm.set_value("interest_component", interest);
                 frm.set_value("principal_outstanding_after", flt(r.message.principal_outstanding_before - principal, 2));
                 frm.set_value("unearned_interest_after", flt(r.message.unearned_interest_before - interest, 2));
-                frm.set_value("total_outstanding_after", flt(r.message.total_outstanding_before - total, 2));
+                frm.set_value("total_outstanding_after", flt(outstanding - applied, 2));
             },
         });
     },
 });
-

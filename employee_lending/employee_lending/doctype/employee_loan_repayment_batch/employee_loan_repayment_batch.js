@@ -65,22 +65,32 @@ frappe.ui.form.on("Employee Loan Repayment Batch Item", {
         const rate = flt(row.flat_interest_rate);
         const outstanding = flt(row.total_outstanding_before, 2);
         if (!amount || !outstanding) return;
-        if (amount > outstanding) {
-            frappe.msgprint(__("Repayment cannot exceed the outstanding amount."));
-            return;
-        }
+        const applied = Math.min(amount, outstanding);
+        const credit = flt(Math.max(0, amount - applied), 2);
+        const principalOutstanding = flt(row.principal_outstanding_before, 2);
+        const interestOutstanding = flt(row.unearned_interest_before, 2);
         let principal;
         let interest;
-        if (amount === outstanding) {
-            principal = flt(row.principal_outstanding_before, 2);
-            interest = flt(row.unearned_interest_before, 2);
+        if (applied === outstanding) {
+            principal = principalOutstanding;
+            interest = interestOutstanding;
         } else {
-            principal = flt(amount * 100 / (100 + rate), 2);
-            interest = flt(amount - principal, 2);
+            principal = flt(applied * 100 / (100 + rate), 2);
+            interest = flt(applied - principal, 2);
+            if (principal > principalOutstanding) {
+                principal = principalOutstanding;
+                interest = flt(applied - principal, 2);
+            }
+            if (interest > interestOutstanding) {
+                interest = interestOutstanding;
+                principal = flt(applied - interest, 2);
+            }
         }
+        frappe.model.set_value(cdt, cdn, "applied_amount", applied);
+        frappe.model.set_value(cdt, cdn, "credit_amount", credit);
         frappe.model.set_value(cdt, cdn, "principal_component", principal);
         frappe.model.set_value(cdt, cdn, "interest_component", interest);
-        frappe.model.set_value(cdt, cdn, "total_outstanding_after", flt(outstanding - amount, 2));
+        frappe.model.set_value(cdt, cdn, "total_outstanding_after", flt(outstanding - applied, 2));
         update_totals(frm);
     },
 });
@@ -120,6 +130,8 @@ function set_row_values(cdt, cdn, values) {
 function update_totals(frm) {
     const rows = frm.doc.repayments || [];
     frm.set_value("total_repayment_amount", flt(rows.reduce((sum, row) => sum + flt(row.repayment_amount), 0), 2));
+    frm.set_value("total_applied_amount", flt(rows.reduce((sum, row) => sum + flt(row.applied_amount), 0), 2));
     frm.set_value("total_principal_component", flt(rows.reduce((sum, row) => sum + flt(row.principal_component), 0), 2));
     frm.set_value("total_interest_component", flt(rows.reduce((sum, row) => sum + flt(row.interest_component), 0), 2));
+    frm.set_value("total_credit_amount", flt(rows.reduce((sum, row) => sum + flt(row.credit_amount), 0), 2));
 }

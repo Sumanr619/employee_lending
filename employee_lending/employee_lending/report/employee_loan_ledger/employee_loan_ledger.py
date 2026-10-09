@@ -64,7 +64,8 @@ def execute(filters=None):
                loan.interest_earned, loan.total_repaid, loan.loan_status,
                loan.is_legacy_opening, gle.voucher_type,
                gle.voucher_no, 'Module GL' as entry_source, gle.account,
-               gle.debit, gle.credit, gle.remarks
+               gle.debit, gle.credit,
+               coalesce(nullif(repayment.remarks, ''), nullif(batch.remarks, ''), gle.remarks) as remarks
           from `tabGL Entry` gle
           inner join `tabEmployee Loan Application` loan
                   on (
@@ -74,6 +75,12 @@ def execute(filters=None):
                             and gle.against_voucher = loan.disbursement_journal_entry
                        )
                   )
+          left join `tabEmployee Loan Repayment` repayment
+                 on repayment.journal_entry = gle.voucher_no
+                and repayment.docstatus = 1
+          left join `tabEmployee Loan Repayment Batch` batch
+                 on batch.journal_entry = gle.voucher_no
+                and batch.docstatus = 1
          where {' and '.join(conditions)}
          order by loan.name, gle.posting_date, gle.creation, gle.name
         """,

@@ -1,5 +1,6 @@
 import frappe
 from frappe import _
+from frappe.utils import flt
 
 from employee_lending.employee_lending.doctype.employee_lending_settings.employee_lending_settings import get_settings
 
@@ -101,23 +102,39 @@ def create_batch_repayment_journal(batch):
     journal.finance_book = settings.finance_book
     journal.cheque_no = batch.batch_reference
     journal.cheque_date = batch.posting_date
-    journal.user_remark = _("Consolidated employee loan repayment batch {0} - {1} employee loan(s)").format(
+    system_remark = _("Consolidated employee loan repayment batch {0} - {1} employee loan(s)").format(
         batch.name, len(batch.repayments)
+    )
+    journal.user_remark = (
+        "{0} - {1}".format(system_remark, batch.remarks)
+        if batch.remarks
+        else system_remark
     )
     journal.append("accounts", _account_row(debit_account, debit=batch.total_repayment_amount))
     for repayment in batch.repayments:
         reference_type, reference_name = _loan_journal_reference(repayment.loan_application)
-        journal.append(
-            "accounts",
-            _account_row(
-                settings.staff_loan_receivable_account,
-                credit=repayment.repayment_amount,
-                reference_type=reference_type,
-                reference_name=reference_name,
-                party_type="Employee",
-                party=repayment.employee,
-            ),
-        )
+        if flt(repayment.applied_amount, 2):
+            journal.append(
+                "accounts",
+                _account_row(
+                    settings.staff_loan_receivable_account,
+                    credit=repayment.applied_amount,
+                    reference_type=reference_type,
+                    reference_name=reference_name,
+                    party_type="Employee",
+                    party=repayment.employee,
+                ),
+            )
+        if flt(repayment.credit_amount, 2):
+            journal.append(
+                "accounts",
+                _account_row(
+                    settings.staff_loan_receivable_account,
+                    credit=repayment.credit_amount,
+                    party_type="Employee",
+                    party=repayment.employee,
+                ),
+            )
     if batch.total_interest_component:
         for repayment in batch.repayments:
             if not repayment.interest_component:
@@ -161,8 +178,13 @@ def create_repayment_journal(repayment, loan):
     journal.finance_book = settings.finance_book
     journal.cheque_no = repayment.bank_reference
     journal.cheque_date = repayment.posting_date if repayment.bank_reference else None
-    journal.user_remark = _("Employee loan repayment {0} against {1} for {2}").format(
+    system_remark = _("Employee loan repayment {0} against {1} for {2}").format(
         repayment.name, loan.name, loan.employee_name
+    )
+    journal.user_remark = (
+        "{0} - {1}".format(system_remark, repayment.remarks)
+        if repayment.remarks
+        else system_remark
     )
     reference_type, reference_name = _loan_journal_reference(
         loan.name, loan.disbursement_journal_entry
@@ -172,32 +194,43 @@ def create_repayment_journal(repayment, loan):
         "accounts",
         _account_row(
             settings.staff_loan_receivable_account,
-            credit=repayment.repayment_amount,
+            credit=repayment.applied_amount,
             reference_type=reference_type,
             reference_name=reference_name,
             party_type="Employee",
             party=loan.employee,
         ),
     )
-    journal.append(
-        "accounts",
-        _account_row(
-            settings.unearned_interest_account,
-            debit=repayment.interest_component,
-            reference_type=reference_type,
-            reference_name=reference_name,
-            party_type="Employee",
-            party=loan.employee,
-        ),
-    )
-    journal.append(
-        "accounts",
-        _account_row(
-            settings.interest_income_account,
-            credit=repayment.interest_component,
-            cost_center=settings.default_cost_center,
-        ),
-    )
+    if flt(repayment.credit_amount, 2):
+        journal.append(
+            "accounts",
+            _account_row(
+                settings.staff_loan_receivable_account,
+                credit=repayment.credit_amount,
+                party_type="Employee",
+                party=loan.employee,
+            ),
+        )
+    if flt(repayment.interest_component, 2):
+        journal.append(
+            "accounts",
+            _account_row(
+                settings.unearned_interest_account,
+                debit=repayment.interest_component,
+                reference_type=reference_type,
+                reference_name=reference_name,
+                party_type="Employee",
+                party=loan.employee,
+            ),
+        )
+        journal.append(
+            "accounts",
+            _account_row(
+                settings.interest_income_account,
+                credit=repayment.interest_component,
+                cost_center=settings.default_cost_center,
+            ),
+        )
     journal.insert(ignore_permissions=True)
     journal.flags.ignore_permissions = True
     journal.submit()
@@ -209,51 +242,59 @@ def create_legacy_conversion_journals(opening, loan, conversion):
     if not settings.legacy_temporary_account:
         frappe.throw(_("Configure Legacy Temporary Account in Employee Lending Settings"))
 
-    cleanup = frappe.new_doc("Journal Entry")
-    cleanup.company = opening.company
-    cleanup.posting_date = opening.cutoff_date
-    cleanup.voucher_type = "Journal Entry"
-    cleanup.finance_book = settings.finance_book
-    cleanup.user_remark = _(
-        "Legacy employee loan cleanup {0} for {1}. No bank movement. Source vouchers: {2}"
-    ).format(opening.name, opening.employee_name, opening.source_journal_entries or "Not recorded")
-    cleanup.append(
-        "accounts",
-        _account_row(
-            settings.legacy_temporary_account,
-            debit=float(conversion.cleanup_temporary_debit),
-        ),
-    )
-    cleanup.append(
-        "accounts",
-        _account_row(
-            settings.staff_loan_receivable_account,
-            credit=float(conversion.cleanup_staff_loan_credit),
-            party_type="Employee",
-            party=opening.employee,
-        ),
-    )
-    if conversion.cleanup_unearned_interest_credit:
+    cleanup = None
+    if opening.source_gl_exists_in_target:
+        cleanup = frappe.new_doc("Journal Entry")
+        cleanup.company = opening.company
+        cleanup.posting_date = opening.cutoff_date
+        cleanup.voucher_type = "Journal Entry"
+        cleanup.finance_book = settings.finance_book
+        cleanup.user_remark = _(
+            "Legacy employee loan cleanup {0} for {1}. No bank movement. Source vouchers: {2}"
+        ).format(opening.name, opening.employee_name, opening.source_journal_entries or "Not recorded")
         cleanup.append(
             "accounts",
             _account_row(
-                settings.unearned_interest_account,
-                credit=float(conversion.cleanup_unearned_interest_credit),
-                party_type="Employee",
-                party=opening.employee,
+                settings.legacy_temporary_account,
+                debit=float(conversion.cleanup_temporary_debit),
             ),
         )
-    cleanup.insert(ignore_permissions=True)
-    cleanup.flags.ignore_permissions = True
-    cleanup.submit()
+        if conversion.cleanup_staff_loan_credit:
+            cleanup.append(
+                "accounts",
+                _account_row(
+                    settings.staff_loan_receivable_account,
+                    credit=float(conversion.cleanup_staff_loan_credit),
+                    party_type="Employee",
+                    party=opening.employee,
+                ),
+            )
+        if conversion.cleanup_unearned_interest_credit:
+            cleanup.append(
+                "accounts",
+                _account_row(
+                    settings.unearned_interest_account,
+                    credit=float(conversion.cleanup_unearned_interest_credit),
+                    party_type="Employee",
+                    party=opening.employee,
+                ),
+            )
+        cleanup.insert(ignore_permissions=True)
+        cleanup.flags.ignore_permissions = True
+        cleanup.submit()
 
     journal = frappe.new_doc("Journal Entry")
     journal.company = opening.company
     journal.posting_date = opening.cutoff_date
     journal.voucher_type = "Journal Entry"
     journal.finance_book = settings.finance_book
-    journal.user_remark = _(
-        "Legacy employee loan clean opening {0} for {1}. No bank movement."
+    journal.user_remark = (
+        _("Legacy employee loan clean opening {0} for {1}. No bank movement.")
+        if opening.source_gl_exists_in_target
+        else _(
+            "Fresh-instance employee loan opening {0} for {1}. "
+            "Source GL not reposted; no cleanup or bank movement."
+        )
     ).format(opening.name, opening.employee_name)
     journal.append(
         "accounts",
@@ -264,13 +305,14 @@ def create_legacy_conversion_journals(opening, loan, conversion):
             party=opening.employee,
         ),
     )
-    journal.append(
-        "accounts",
-        _account_row(
-            settings.legacy_temporary_account,
-            credit=float(conversion.opening_temporary_credit),
-        ),
-    )
+    if conversion.opening_temporary_credit:
+        journal.append(
+            "accounts",
+            _account_row(
+                settings.legacy_temporary_account,
+                credit=float(conversion.opening_temporary_credit),
+            ),
+        )
     if conversion.opening_unearned_interest_credit:
         journal.append(
             "accounts",

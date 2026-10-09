@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="employee_lending",
-    version="1.6.0",
+    version="1.6.2",
     description="Employee lending and repayment automation for ERPNext",
     packages=find_packages(),
     include_package_data=True,
