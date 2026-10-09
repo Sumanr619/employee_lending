@@ -242,51 +242,59 @@ def create_legacy_conversion_journals(opening, loan, conversion):
     if not settings.legacy_temporary_account:
         frappe.throw(_("Configure Legacy Temporary Account in Employee Lending Settings"))
 
-    cleanup = frappe.new_doc("Journal Entry")
-    cleanup.company = opening.company
-    cleanup.posting_date = opening.cutoff_date
-    cleanup.voucher_type = "Journal Entry"
-    cleanup.finance_book = settings.finance_book
-    cleanup.user_remark = _(
-        "Legacy employee loan cleanup {0} for {1}. No bank movement. Source vouchers: {2}"
-    ).format(opening.name, opening.employee_name, opening.source_journal_entries or "Not recorded")
-    cleanup.append(
-        "accounts",
-        _account_row(
-            settings.legacy_temporary_account,
-            debit=float(conversion.cleanup_temporary_debit),
-        ),
-    )
-    cleanup.append(
-        "accounts",
-        _account_row(
-            settings.staff_loan_receivable_account,
-            credit=float(conversion.cleanup_staff_loan_credit),
-            party_type="Employee",
-            party=opening.employee,
-        ),
-    )
-    if conversion.cleanup_unearned_interest_credit:
+    cleanup = None
+    if opening.source_gl_exists_in_target:
+        cleanup = frappe.new_doc("Journal Entry")
+        cleanup.company = opening.company
+        cleanup.posting_date = opening.cutoff_date
+        cleanup.voucher_type = "Journal Entry"
+        cleanup.finance_book = settings.finance_book
+        cleanup.user_remark = _(
+            "Legacy employee loan cleanup {0} for {1}. No bank movement. Source vouchers: {2}"
+        ).format(opening.name, opening.employee_name, opening.source_journal_entries or "Not recorded")
         cleanup.append(
             "accounts",
             _account_row(
-                settings.unearned_interest_account,
-                credit=float(conversion.cleanup_unearned_interest_credit),
-                party_type="Employee",
-                party=opening.employee,
+                settings.legacy_temporary_account,
+                debit=float(conversion.cleanup_temporary_debit),
             ),
         )
-    cleanup.insert(ignore_permissions=True)
-    cleanup.flags.ignore_permissions = True
-    cleanup.submit()
+        if conversion.cleanup_staff_loan_credit:
+            cleanup.append(
+                "accounts",
+                _account_row(
+                    settings.staff_loan_receivable_account,
+                    credit=float(conversion.cleanup_staff_loan_credit),
+                    party_type="Employee",
+                    party=opening.employee,
+                ),
+            )
+        if conversion.cleanup_unearned_interest_credit:
+            cleanup.append(
+                "accounts",
+                _account_row(
+                    settings.unearned_interest_account,
+                    credit=float(conversion.cleanup_unearned_interest_credit),
+                    party_type="Employee",
+                    party=opening.employee,
+                ),
+            )
+        cleanup.insert(ignore_permissions=True)
+        cleanup.flags.ignore_permissions = True
+        cleanup.submit()
 
     journal = frappe.new_doc("Journal Entry")
     journal.company = opening.company
     journal.posting_date = opening.cutoff_date
     journal.voucher_type = "Journal Entry"
     journal.finance_book = settings.finance_book
-    journal.user_remark = _(
-        "Legacy employee loan clean opening {0} for {1}. No bank movement."
+    journal.user_remark = (
+        _("Legacy employee loan clean opening {0} for {1}. No bank movement.")
+        if opening.source_gl_exists_in_target
+        else _(
+            "Fresh-instance employee loan opening {0} for {1}. "
+            "Source GL not reposted; no cleanup or bank movement."
+        )
     ).format(opening.name, opening.employee_name)
     journal.append(
         "accounts",
@@ -297,13 +305,14 @@ def create_legacy_conversion_journals(opening, loan, conversion):
             party=opening.employee,
         ),
     )
-    journal.append(
-        "accounts",
-        _account_row(
-            settings.legacy_temporary_account,
-            credit=float(conversion.opening_temporary_credit),
-        ),
-    )
+    if conversion.opening_temporary_credit:
+        journal.append(
+            "accounts",
+            _account_row(
+                settings.legacy_temporary_account,
+                credit=float(conversion.opening_temporary_credit),
+            ),
+        )
     if conversion.opening_unearned_interest_credit:
         journal.append(
             "accounts",

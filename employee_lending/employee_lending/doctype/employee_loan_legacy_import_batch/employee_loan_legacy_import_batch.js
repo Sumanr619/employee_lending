@@ -19,8 +19,11 @@ frappe.ui.form.on("Employee Loan Legacy Import Batch", {
 
         if (frm.doc.docstatus === 1 && ["Completed", "Completed with Errors"].includes(frm.doc.status) && frm.doc.excluded_rows) {
             frm.add_custom_button(__("Import Excluded Credits"), () => {
+                const message = frm.doc.source_gl_exists_in_target
+                    ? __("Import employee overpayment balances from the excluded rows? Existing target-site Journal Entries will only be referenced; no GL entry will be posted.")
+                    : __("Import employee overpayment balances from the excluded rows? Fresh-target opening Journal Entries will be posted against the Legacy Temporary Account; no Bank or Cash account will be used.");
                 frappe.confirm(
-                    __("Import employee overpayment balances from the excluded rows? Existing Journal Entries will only be referenced; no GL entry will be posted."),
+                    message,
                     () => {
                         frappe.call({
                             method: "employee_lending.employee_lending.doctype.employee_loan_legacy_import_batch.employee_loan_legacy_import_batch.import_excluded_credits",

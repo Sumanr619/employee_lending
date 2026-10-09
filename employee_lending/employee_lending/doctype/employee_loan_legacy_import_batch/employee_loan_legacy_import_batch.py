@@ -7,6 +7,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt, now, nowdate
 
+from employee_lending.employee_lending.accounting import _account_row
 from employee_lending.employee_lending.doctype.employee_lending_settings.employee_lending_settings import get_settings
 from employee_lending.employee_lending.legacy_import import (
     aggregate_gl_rows,
@@ -119,6 +120,8 @@ class EmployeeLoanLegacyImportBatch(Document):
     def before_submit(self):
         if not self.rows:
             frappe.throw(_("Load and validate the outstanding report before submitting"))
+        if not self.source_gl_exists_in_target and not self.confirm_fresh_target:
+            frappe.throw(_("Confirm that the target site has no source loan GL entries"))
         if not self.confirm_no_bank_posting:
             frappe.throw(_("Confirm that the batch must not post to Bank or Cash"))
         self.update_counts()
@@ -410,6 +413,15 @@ def import_excluded_credits(batch_name):
 
         principal_credit = flt(components["principal_credit"], 2)
         interest_credit = flt(components["interest_credit"], 2)
+        source_vouchers = "\n".join(employee_gl["source_vouchers"])
+        opening_journal = None
+        if not batch.source_gl_exists_in_target:
+            opening_journal = create_fresh_target_credit_journal(
+                batch, row, principal_credit, interest_credit
+            )
+            source_vouchers = "{0}\nFresh target opening: {1}".format(
+                source_vouchers, opening_journal.name
+            ).strip()
         credit = frappe.get_doc(
             {
                 "doctype": "Employee Loan Credit",
@@ -418,13 +430,15 @@ def import_excluded_credits(batch_name):
                 "legacy_import_batch": batch.name,
                 "source_row": row.row_number,
                 "source_reference": source_reference,
-                "source_vouchers": "\n".join(employee_gl["source_vouchers"]),
+                "source_vouchers": source_vouchers,
                 "original_principal_credit": principal_credit,
                 "original_interest_credit": interest_credit,
                 "principal_credit_available": principal_credit,
                 "interest_credit_available": interest_credit,
-                "remarks": _(
-                    "Existing GL overpayment registered from legacy batch {0}; no GL entry posted"
+                "remarks": (
+                    _("Existing GL overpayment registered from legacy batch {0}; no GL entry posted")
+                    if batch.source_gl_exists_in_target
+                    else _("Fresh-target employee credit opening posted by {0}")
                 ).format(batch.name),
             }
         )
@@ -458,6 +472,55 @@ def import_excluded_credits(batch_name):
         update_modified=False,
     )
     return {"imported": imported, "amount": imported_amount}
+
+
+def create_fresh_target_credit_journal(batch, row, principal_credit, interest_credit):
+    """Post an employee credit opening when the source GL is absent here."""
+    settings = get_settings()
+    if not settings.legacy_temporary_account:
+        frappe.throw(_("Configure Legacy Temporary Account in Employee Lending Settings"))
+
+    total_credit = flt(principal_credit + interest_credit, 2)
+    if total_credit <= 0:
+        frappe.throw(_("Employee credit opening amount must be greater than zero"))
+
+    journal = frappe.new_doc("Journal Entry")
+    journal.company = batch.company
+    journal.posting_date = batch.cutoff_date
+    journal.voucher_type = "Journal Entry"
+    journal.finance_book = settings.finance_book
+    journal.user_remark = _(
+        "Fresh-instance employee loan credit opening for {0}; source row {1}. "
+        "No bank movement."
+    ).format(row.employee_name or row.employee, row.row_number)
+    journal.append(
+        "accounts",
+        _account_row(settings.legacy_temporary_account, debit=total_credit),
+    )
+    if principal_credit:
+        journal.append(
+            "accounts",
+            _account_row(
+                settings.staff_loan_receivable_account,
+                credit=principal_credit,
+                party_type="Employee",
+                party=row.employee,
+            ),
+        )
+    if interest_credit:
+        journal.append(
+            "accounts",
+            _account_row(
+                settings.unearned_interest_account,
+                credit=interest_credit,
+                party_type="Employee",
+                party=row.employee,
+            ),
+        )
+    journal.insert(ignore_permissions=True)
+    journal.flags.ignore_permissions = True
+    journal.submit()
+    return journal
 
 
 def process_batch(batch_name):
@@ -532,6 +595,9 @@ def create_legacy_opening(batch, row):
             "principal_repaid": row.principal_repaid,
             "interest_repaid": row.interest_repaid,
             "next_repayment_date": batch.next_repayment_date,
+            "source_gl_exists_in_target": batch.source_gl_exists_in_target,
+            "confirm_fresh_target": 1 if not batch.source_gl_exists_in_target else 0,
+            "source_journal_entries": row.source_vouchers,
             "confirm_no_bank_posting": 1,
             "remarks": f"Created from bulk legacy import {batch.name}, source row {row.row_number}",
         }
@@ -563,9 +629,11 @@ def create_legacy_transactions(batch, row, opening, transactions):
                 "debit": float(transaction["debit"]),
                 "credit": float(transaction["credit"]),
                 "against_account": transaction["against_account"],
-                "remarks": _("Existing production Journal Entry; linked by bulk legacy import {0}").format(
-                    batch.name
-                ),
+                "remarks": (
+                    _("Existing target-site Journal Entry; linked by bulk legacy import {0}")
+                    if batch.source_gl_exists_in_target
+                    else _("Source-system Journal Entry reference only; not posted in this site. Imported by {0}")
+                ).format(batch.name),
             }
         )
         history.flags.from_legacy_import = True

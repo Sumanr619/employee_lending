@@ -6,7 +6,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "naming_series","status","company","source_section","cutoff_date","next_repayment_date","source_reference","source_file","gl_source_file","control_section","confirm_no_bank_posting","rows_section","rows","totals_section","total_rows","ready_rows","excluded_rows","invalid_rows","ready_principal_outstanding","ready_interest_outstanding","ready_total_outstanding","column_break_totals","source_opening_vouchers","source_repayment_allocations","processed_rows","failed_rows","imported_credit_rows","imported_credit_amount","started_on","completed_on","amended_from"
+  "naming_series","status","company","source_section","cutoff_date","next_repayment_date","source_reference","source_file","gl_source_file","control_section","source_gl_exists_in_target","confirm_fresh_target","confirm_no_bank_posting","rows_section","rows","totals_section","total_rows","ready_rows","excluded_rows","invalid_rows","ready_principal_outstanding","ready_interest_outstanding","ready_total_outstanding","column_break_totals","source_opening_vouchers","source_repayment_allocations","processed_rows","failed_rows","imported_credit_rows","imported_credit_amount","started_on","completed_on","amended_from"
  ],
  "fields": [
   {"default":"EL-LEGACY-BATCH-.YYYY.-.#####","fieldname":"naming_series","fieldtype":"Select","label":"Series","options":"EL-LEGACY-BATCH-.YYYY.-.#####","reqd":1},
@@ -19,6 +19,8 @@
   {"description":"Upload the Employee Loan Outstanding XLSX report. Do not upload the original Journal Entry import file here.","fieldname":"source_file","fieldtype":"Attach","label":"Employee Loan Outstanding XLSX","reqd":1},
   {"description":"Production General Ledger XLSX covering all Staff Loan, Unearned Interest and Interest Income entries through the same cut-off date.","fieldname":"gl_source_file","fieldtype":"Attach","label":"Production General Ledger XLSX","reqd":1},
   {"fieldname":"control_section","fieldtype":"Section Break","label":"Posting Control"},
+  {"default":"1","description":"Keep selected only when the source Staff Loan and Unearned Interest GL entries have already been posted in this site. Clear this for a fresh target instance; the import will create only the clean opening Journal Entry and will not create a cleanup reversal.","fieldname":"source_gl_exists_in_target","fieldtype":"Check","label":"Source GL Already Exists in This Target Site"},
+  {"default":"0","depends_on":"eval:!doc.source_gl_exists_in_target","description":"Confirms that this is a fresh target and that no source Staff Loan or Unearned Interest GL entries exist here.","fieldname":"confirm_fresh_target","fieldtype":"Check","label":"Confirm Fresh Target Opening"},
   {"default":"0","description":"Every conversion uses reclassification accounts only and must not touch Bank or Cash.","fieldname":"confirm_no_bank_posting","fieldtype":"Check","label":"Confirm No Bank Posting","reqd":1},
   {"fieldname":"rows_section","fieldtype":"Section Break","label":"Employees"},
   {"fieldname":"rows","fieldtype":"Table","label":"Legacy Loans","options":"Employee Loan Legacy Import Row","read_only":1},
