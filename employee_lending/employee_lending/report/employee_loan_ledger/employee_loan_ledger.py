@@ -110,7 +110,8 @@ def execute(filters=None):
                loan.total_outstanding, loan.principal_recovered,
                loan.interest_earned, loan.total_repaid, loan.loan_status,
                loan.is_legacy_opening, 'Journal Entry' as voucher_type,
-               history.journal_entry as voucher_no, 'Historical JE' as entry_source,
+               coalesce(history.journal_entry, history.source_journal_entry) as voucher_no,
+               'Historical JE' as entry_source,
                %(staff_loan_account)s as account, history.debit, history.credit,
                concat(history.transaction_type, ': ', ifnull(history.remarks, '')) as remarks
           from `tabEmployee Loan Legacy Transaction` history
