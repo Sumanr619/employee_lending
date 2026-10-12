@@ -623,7 +623,12 @@ def create_legacy_transactions(batch, row, opening, transactions):
                 "employee_name": loan.employee_name,
                 "posting_date": transaction["posting_date"],
                 "transaction_type": transaction["transaction_type"],
-                "journal_entry": transaction["voucher"],
+                "source_journal_entry": transaction["voucher"],
+                "journal_entry": (
+                    transaction["voucher"]
+                    if batch.source_gl_exists_in_target
+                    else None
+                ),
                 "principal_amount": float(transaction["principal_amount"]),
                 "interest_amount": float(transaction["interest_amount"]),
                 "debit": float(transaction["debit"]),
