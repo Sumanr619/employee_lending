@@ -24,6 +24,9 @@ def execute(filters=None):
     if filters.get("employee"):
         conditions.append("employee = %(employee)s")
         values["employee"] = filters.employee
+    if filters.get("date"):
+        conditions.append("application_date = %(date)s")
+        values["date"] = filters.date
     if filters.get("loan_status"):
         conditions.append("loan_status = %(loan_status)s")
         values["loan_status"] = filters.loan_status
