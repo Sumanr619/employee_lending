@@ -11,7 +11,7 @@ frappe.ui.form.on("Employee Loan Application", {
                 });
             }, __("Create"));
         }
-        if (frm.doc.docstatus === 1 && frm.doc.loan_status === "Active") {
+        if (frm.doc.docstatus === 1 && ["Active", "Closed"].includes(frm.doc.loan_status)) {
             frm.add_custom_button(__("Record Repayment"), () => {
                 frappe.new_doc("Employee Loan Repayment", {
                     loan_application: frm.doc.name,

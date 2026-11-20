@@ -1,6 +1,6 @@
 frappe.ui.form.on("Employee Loan Repayment", {
     setup(frm) {
-        frm.set_query("loan_application", () => ({ filters: { docstatus: 1, loan_status: "Active" } }));
+        frm.set_query("loan_application", () => ({ filters: { docstatus: 1, loan_status: ["in", ["Active", "Closed"]] } }));
         frm.set_query("bank_or_clearing_account", () => ({
             filters: { company: frm.doc.company, is_group: 0, disabled: 0 },
         }));

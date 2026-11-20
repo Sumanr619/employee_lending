@@ -1,0 +1,39 @@
+$ python -m unittest discover -s tests -v
+test_all_bucket_boundaries (test_release_170.AgeingTests.test_all_bucket_boundaries) ... ok
+test_credit_ages_negative_without_reducing_loan (test_release_170.AgeingTests.test_credit_ages_negative_without_reducing_loan) ... ok
+test_missing_schedule_is_unaged (test_release_170.AgeingTests.test_missing_schedule_is_unaged) ... ok
+test_partial_fifo_and_future_instalments (test_release_170.AgeingTests.test_partial_fifo_and_future_instalments) ... ok
+test_schedule_shortfall_is_visible (test_release_170.AgeingTests.test_schedule_shortfall_is_visible) ... ok
+test_active_payoff_and_excess_keep_only_applied_amount_linked (test_release_170.JournalTests.test_active_payoff_and_excess_keep_only_applied_amount_linked) ... ok
+test_credit_only_batch_has_one_bank_debit (test_release_170.JournalTests.test_credit_only_batch_has_one_bank_debit) ... ok
+test_single_credit_only_je_has_two_rows_no_loan_reference (test_release_170.JournalTests.test_single_credit_only_je_has_two_rows_no_loan_reference) ... ok
+test_standalone_credit_receipt_is_guarded (test_release_170.JournalTests.test_standalone_credit_receipt_is_guarded) ... ok
+test_above_instalment_below_balance_is_loan_reduction (test_release_170.ReceiptTests.test_above_instalment_below_balance_is_loan_reduction) ... ok
+test_closed_loan_controller_accepts_and_calculates_credit (test_release_170.ReceiptTests.test_closed_loan_controller_accepts_and_calculates_credit) ... ok
+test_credit_only_batch_does_not_update_loan (test_release_170.ReceiptTests.test_credit_only_batch_does_not_update_loan) ... ok
+test_credit_only_submit_and_cancel_do_not_reopen_loan (test_release_170.ReceiptTests.test_credit_only_submit_and_cancel_do_not_reopen_loan) ... ok
+test_invalid_or_inconsistent_balances_rejected (test_release_170.ReceiptTests.test_invalid_or_inconsistent_balances_rejected) ... ok
+test_mixed_batch_closed_and_active (test_release_170.ReceiptTests.test_mixed_batch_closed_and_active) ... ok
+test_payoff_then_multiple_credit_receipts (test_release_170.ReceiptTests.test_payoff_then_multiple_credit_receipts) ... ok
+test_used_credit_blocks_receipt_cancellation (test_release_170.ReceiptTests.test_used_credit_blocks_receipt_cancellation) ... ok
+test_active_filter_keeps_credit_only_employee (test_release_170.ReportTests.test_active_filter_keeps_credit_only_employee) ... ok
+test_credit_sql_rebuilds_historical_available_not_current_status (test_release_170.ReportTests.test_credit_sql_rebuilds_historical_available_not_current_status) ... ok
+test_detail_credit_only_employee_and_net_reconciliation (test_release_170.ReportTests.test_detail_credit_only_employee_and_net_reconciliation) ... ok
+test_future_reduction_reconstructed_in_report (test_release_170.ReportTests.test_future_reduction_reconstructed_in_report) ... ok
+test_historical_credit_query_against_sqlite (test_release_170.ReportTests.test_historical_credit_query_against_sqlite) ... ok
+test_include_credit_toggle (test_release_170.ReportTests.test_include_credit_toggle) ... ok
+test_summary_does_not_repeat_employee_credit_per_loan (test_release_170.ReportTests.test_summary_does_not_repeat_employee_credit_per_loan) ... ok
+test_two_loans_share_one_credit_total (test_release_170.ReportTests.test_two_loans_share_one_credit_total) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 0.008s
+
+OK
+
+$ node tests/test_ui_170.js
+PASS individual closed-loan payment preview
+PASS batch closed-loan payment preview
+PASS report filters
+
+Syntax checks passed: {'.py': 57, '.json': 24, '.js': 16}
+No live Frappe/ERPNext integration environment was available.

@@ -144,6 +144,17 @@
    "collapsible": 1,
    "indent": 0,
    "keep_closed": 0,
+   "label": "Employee Loan Credit Receipt",
+   "link_to": "Employee Loan Credit Receipt",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
    "label": "Employee Loan Credit Adjustment",
    "link_to": "Employee Loan Credit Adjustment",
    "link_type": "DocType",
@@ -217,7 +228,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-10-13 00:18:24.405392",
+ "modified": "2026-11-19 22:01:32.011388",
  "modified_by": "Administrator",
  "module": "Employee Lending",
  "module_onboarding": "",

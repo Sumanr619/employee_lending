@@ -5,7 +5,7 @@ from datetime import date, datetime
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt, now, nowdate
+from frappe.utils import cint, flt, now, nowdate
 
 from employee_lending.employee_lending.accounting import _account_row
 from employee_lending.employee_lending.doctype.employee_lending_settings.employee_lending_settings import get_settings
@@ -37,14 +37,13 @@ class EmployeeLoanLegacyImportBatch(Document):
             frappe.throw(_("Only a draft batch can load a report"))
         if not self.source_file:
             frappe.throw(_("Attach the Employee Loan Outstanding XLSX report"))
-        if not self.gl_source_file:
-            frappe.throw(_("Attach the production General Ledger XLSX report"))
-        if not str(self.source_file).lower().endswith(".xlsx") or not str(self.gl_source_file).lower().endswith(".xlsx"):
-            frappe.throw(_("Both source files must be XLSX workbooks"))
+        if not str(self.source_file).lower().endswith(".xlsx"):
+            frappe.throw(_("The outstanding source file must be an XLSX workbook"))
 
         settings = get_settings()
         records = read_outstanding_file(self.source_file)
-        gl_by_employee = read_gl_file(self.gl_source_file, settings, self.cutoff_date)
+        gl_by_employee = get_source_gl(self, settings)
+        balance_only = is_fresh_target(self) and not gl_by_employee
         employee_ids = sorted({record["employee"] for _, record in records if record})
         employees = {
             row.name: row
@@ -82,8 +81,10 @@ class EmployeeLoanLegacyImportBatch(Document):
                 status, message = "Invalid", "Employee company does not match the batch company"
             elif status == "Ready" and not product:
                 status, message = "Invalid", "No unique active loan product matches the source interest rate"
-            elif status == "Ready":
+            elif status == "Ready" and not balance_only:
                 status, message = validate_gl_reconciliation(record, employee_gl)
+            elif status == "Ready":
+                message = "Fresh opening from outstanding balance; no historical GL or repayments imported"
 
             self.append(
                 "rows",
@@ -120,7 +121,7 @@ class EmployeeLoanLegacyImportBatch(Document):
     def before_submit(self):
         if not self.rows:
             frappe.throw(_("Load and validate the outstanding report before submitting"))
-        if not self.source_gl_exists_in_target and not self.confirm_fresh_target:
+        if is_fresh_target(self) and not cint(self.confirm_fresh_target):
             frappe.throw(_("Confirm that the target site has no source loan GL entries"))
         if not self.confirm_no_bank_posting:
             frappe.throw(_("Confirm that the batch must not post to Bank or Cash"))
@@ -165,6 +166,28 @@ class EmployeeLoanLegacyImportBatch(Document):
         self.ready_total_outstanding = sum(flt(row.reported_total_outstanding) for row in ready)
         self.source_opening_vouchers = sum(int(row.source_opening_count or 0) for row in self.rows)
         self.source_repayment_allocations = sum(int(row.source_repayment_count or 0) for row in self.rows)
+
+
+def is_fresh_target(batch):
+    return not cint(batch.source_gl_exists_in_target)
+
+
+def get_source_gl(batch, settings):
+    """Allow confirmed balance-only openings; retain supplied GL reconciliation."""
+    source_file = batch.gl_source_file
+    if source_file and not str(source_file).lower().endswith(".xlsx"):
+        frappe.throw(_("The General Ledger source file must be an XLSX workbook"))
+    if not source_file and not is_fresh_target(batch):
+        frappe.throw(_("Attach the production General Ledger XLSX report"))
+    gl_by_employee = read_gl_file(source_file, settings, batch.cutoff_date) if source_file else {}
+    # A header-only template is not evidence that existing target GL reconciles.
+    # Nonempty source GL retains the original employee-level validation/history.
+    if is_fresh_target(batch) and not gl_by_employee:
+        if not cint(batch.confirm_fresh_target):
+            frappe.throw(_("Select Confirm Fresh Target Opening for a balance-only opening import"))
+        if not cint(batch.confirm_no_bank_posting):
+            frappe.throw(_("Confirm that the batch must not post to Bank or Cash"))
+    return gl_by_employee
 
 
 def read_outstanding_file(file_url):
@@ -379,7 +402,8 @@ def import_excluded_credits(batch_name):
         frappe.throw(_("Employee credits can only be imported from a completed submitted batch"))
 
     settings = get_settings()
-    gl_by_employee = read_gl_file(batch.gl_source_file, settings, batch.cutoff_date)
+    gl_by_employee = get_source_gl(batch, settings)
+    balance_only = is_fresh_target(batch) and not gl_by_employee
     rows = frappe.get_all(
         "Employee Loan Legacy Import Row",
         filters={"parent": batch.name, "validation_status": "Excluded"},
@@ -390,9 +414,19 @@ def import_excluded_credits(batch_name):
     imported_amount = 0
     for row in rows:
         employee_gl = gl_by_employee.get(row.employee)
-        if not employee_gl:
+        if balance_only:
+            # Carry an opening credit without inventing repayments or vouchers.
+            # No historical interest-credit split is supplied in this mode.
+            total = max(0, flt(-flt(row.reported_total_outstanding, 2), 2))
+            components = {
+                "total_credit": total,
+                "principal_credit": total,
+                "interest_credit": 0,
+            }
+        elif employee_gl:
+            components = calculate_credit_components(employee_gl)
+        else:
             continue
-        components = calculate_credit_components(employee_gl)
         total_credit = flt(components["total_credit"], 2)
         if total_credit <= 0.005:
             continue
@@ -413,9 +447,9 @@ def import_excluded_credits(batch_name):
 
         principal_credit = flt(components["principal_credit"], 2)
         interest_credit = flt(components["interest_credit"], 2)
-        source_vouchers = "\n".join(employee_gl["source_vouchers"])
+        source_vouchers = "\n".join(employee_gl["source_vouchers"]) if employee_gl else ""
         opening_journal = None
-        if not batch.source_gl_exists_in_target:
+        if is_fresh_target(batch):
             opening_journal = create_fresh_target_credit_journal(
                 batch, row, principal_credit, interest_credit
             )
@@ -437,7 +471,7 @@ def import_excluded_credits(batch_name):
                 "interest_credit_available": interest_credit,
                 "remarks": (
                     _("Existing GL overpayment registered from legacy batch {0}; no GL entry posted")
-                    if batch.source_gl_exists_in_target
+                    if not is_fresh_target(batch)
                     else _("Fresh-target employee credit opening posted by {0}")
                 ).format(batch.name),
             }
@@ -536,7 +570,8 @@ def process_batch(batch_name):
     frappe.db.commit()
 
     settings = get_settings()
-    gl_by_employee = read_gl_file(batch.gl_source_file, settings, batch.cutoff_date)
+    gl_by_employee = get_source_gl(batch, settings)
+    balance_only = is_fresh_target(batch) and not gl_by_employee
 
     rows = frappe.get_all(
         "Employee Loan Legacy Import Row",
@@ -549,10 +584,11 @@ def process_batch(batch_name):
         frappe.db.commit()
         try:
             opening = create_legacy_opening(batch, row)
-            employee_gl = gl_by_employee.get(row.employee)
-            if not employee_gl:
-                frappe.throw(_("No matching source GL history was found for employee {0}").format(row.employee))
-            create_legacy_transactions(batch, row, opening, employee_gl["transactions"])
+            if not balance_only:
+                employee_gl = gl_by_employee.get(row.employee)
+                if not employee_gl:
+                    frappe.throw(_("No matching source GL history was found for employee {0}").format(row.employee))
+                create_legacy_transactions(batch, row, opening, employee_gl["transactions"])
             frappe.db.set_value(
                 "Employee Loan Legacy Import Row",
                 row.name,

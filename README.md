@@ -1,3 +1,7 @@
+# v1.7.0 staging update
+
+This package adds combined loan/credit ageing and repeated payments after loan closure. Read `UPGRADE_v1.7.0.md` for the confirmed allocation rule, usage, validation limits and staging acceptance.
+
 # Employee Lending
 
 Employee loan origination, flat-interest scheduling, disbursement, bank repayment,

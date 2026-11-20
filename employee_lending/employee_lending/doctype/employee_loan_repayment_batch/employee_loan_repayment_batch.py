@@ -16,6 +16,7 @@ from employee_lending.employee_lending.doctype.employee_loan_credit.employee_loa
 )
 from employee_lending.employee_lending.doctype.employee_loan_repayment.employee_loan_repayment import rebuild_schedule_status
 from employee_lending.employee_lending.utils import money, split_repayment
+from employee_lending.employee_lending.balance_reporting import allocate_receipt
 
 
 LOAN_FIELDS = [
@@ -142,8 +143,8 @@ class EmployeeLoanRepaymentBatch(Document):
                 loan = result[0] if result else None
             else:
                 loan = frappe.db.get_value("Employee Loan Application", loan_name, LOAN_FIELDS, as_dict=True)
-            if not loan or loan.docstatus != 1 or loan.loan_status != "Active":
-                frappe.throw(_("Loan {0} is not a submitted active loan").format(loan_name))
+            if not loan or loan.docstatus != 1 or loan.loan_status not in ("Active", "Closed"):
+                frappe.throw(_("Loan {0} is not a submitted active or closed loan").format(loan_name))
             if loan.company != self.company:
                 frappe.throw(_("Loan {0} belongs to a different company").format(loan_name))
             loans[loan_name] = loan
@@ -157,34 +158,30 @@ class EmployeeLoanRepaymentBatch(Document):
             loan = loans[row.loan_application]
             if flt(row.repayment_amount) <= 0:
                 frappe.throw(_("Row {0}: Repayment Amount must be greater than zero").format(row.idx))
-            received_amount = money(row.repayment_amount)
-            applied_amount = min(received_amount, money(loan.total_outstanding))
             try:
-                split = split_repayment(
-                    applied_amount,
-                    loan.flat_interest_rate,
-                    loan.principal_outstanding,
-                    loan.unearned_interest_outstanding,
+                allocation = allocate_receipt(
+                    row.repayment_amount, loan.total_outstanding, loan.flat_interest_rate,
+                    loan.principal_outstanding, loan.unearned_interest_outstanding, split_repayment,
                 )
             except ValueError as exc:
                 frappe.throw(_("Row {0}: {1}").format(row.idx, str(exc)))
             row.employee = loan.employee
             row.employee_name = loan.employee_name
             row.flat_interest_rate = loan.flat_interest_rate
-            row.repayment_amount = float(received_amount)
-            row.applied_amount = float(split.amount)
-            row.credit_amount = float(money(received_amount - applied_amount))
-            row.principal_component = float(split.principal)
-            row.interest_component = float(split.interest)
+            row.repayment_amount = allocation["received"]
+            row.applied_amount = allocation["applied"]
+            row.credit_amount = allocation["credit"]
+            row.principal_component = allocation["principal"]
+            row.interest_component = allocation["interest"]
             row.principal_outstanding_before = loan.principal_outstanding
             row.unearned_interest_before = loan.unearned_interest_outstanding
             row.total_outstanding_before = loan.total_outstanding
-            row.total_outstanding_after = flt(loan.total_outstanding - float(split.amount), 2)
-            total_repayment += received_amount
-            total_applied += split.amount
-            total_principal += split.principal
-            total_interest += split.interest
-            total_credit += money(received_amount - applied_amount)
+            row.total_outstanding_after = flt(loan.total_outstanding - allocation["applied"], 2)
+            total_repayment += money(row.repayment_amount)
+            total_applied += money(row.applied_amount)
+            total_principal += money(row.principal_component)
+            total_interest += money(row.interest_component)
+            total_credit += money(row.credit_amount)
 
         self.total_repayment_amount = float(money(total_repayment))
         self.total_applied_amount = float(money(total_applied))
@@ -194,6 +191,8 @@ class EmployeeLoanRepaymentBatch(Document):
 
     def update_loan_balances(self, direction):
         for row in sorted(self.repayments, key=lambda item: item.loan_application):
+            if not flt(row.applied_amount, 2):
+                continue
             result = frappe.db.sql(
                 f"select {', '.join(LOAN_FIELDS)} from `tabEmployee Loan Application` where name = %s for update",
                 row.loan_application,
@@ -223,26 +222,24 @@ class EmployeeLoanRepaymentBatch(Document):
 
 def _serialize_loan(loan):
     amount = min(flt(loan.fortnightly_repayment, 2), flt(loan.total_outstanding, 2))
-    split = split_repayment(
-        amount,
-        loan.flat_interest_rate,
-        loan.principal_outstanding,
-        loan.unearned_interest_outstanding,
-    )
+    allocation = allocate_receipt(
+        amount, loan.total_outstanding, loan.flat_interest_rate,
+        loan.principal_outstanding, loan.unearned_interest_outstanding, split_repayment,
+    ) if amount > 0 else {"applied": 0, "principal": 0, "interest": 0}
     return {
         "loan_application": loan.name,
         "employee": loan.employee,
         "employee_name": loan.employee_name,
         "flat_interest_rate": loan.flat_interest_rate,
-        "repayment_amount": float(split.amount),
-        "applied_amount": float(split.amount),
+        "repayment_amount": allocation["applied"],
+        "applied_amount": allocation["applied"],
         "credit_amount": 0,
-        "principal_component": float(split.principal),
-        "interest_component": float(split.interest),
+        "principal_component": allocation["principal"],
+        "interest_component": allocation["interest"],
         "principal_outstanding_before": loan.principal_outstanding,
         "unearned_interest_before": loan.unearned_interest_outstanding,
         "total_outstanding_before": loan.total_outstanding,
-        "total_outstanding_after": flt(loan.total_outstanding - float(split.amount), 2),
+        "total_outstanding_after": flt(loan.total_outstanding - allocation["applied"], 2),
     }
 
 
@@ -274,6 +271,6 @@ def get_active_loans():
 def get_loan_details(loan_application):
     loan = frappe.get_doc("Employee Loan Application", loan_application)
     loan.check_permission("read")
-    if loan.docstatus != 1 or loan.loan_status != "Active":
-        frappe.throw(_("Select a submitted active employee loan"))
+    if loan.docstatus != 1 or loan.loan_status not in ("Active", "Closed"):
+        frappe.throw(_("Select a submitted active or closed employee loan"))
     return _serialize_loan(loan)

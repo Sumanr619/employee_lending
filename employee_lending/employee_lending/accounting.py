@@ -112,8 +112,8 @@ def create_batch_repayment_journal(batch):
     )
     journal.append("accounts", _account_row(debit_account, debit=batch.total_repayment_amount))
     for repayment in batch.repayments:
-        reference_type, reference_name = _loan_journal_reference(repayment.loan_application)
         if flt(repayment.applied_amount, 2):
+            reference_type, reference_name = _loan_journal_reference(repayment.loan_application)
             journal.append(
                 "accounts",
                 _account_row(
@@ -186,21 +186,22 @@ def create_repayment_journal(repayment, loan):
         if repayment.remarks
         else system_remark
     )
-    reference_type, reference_name = _loan_journal_reference(
-        loan.name, loan.disbursement_journal_entry
-    )
     journal.append("accounts", _account_row(debit_account, debit=repayment.repayment_amount))
-    journal.append(
-        "accounts",
-        _account_row(
-            settings.staff_loan_receivable_account,
-            credit=repayment.applied_amount,
-            reference_type=reference_type,
-            reference_name=reference_name,
-            party_type="Employee",
-            party=loan.employee,
-        ),
-    )
+    if flt(repayment.applied_amount, 2):
+        reference_type, reference_name = _loan_journal_reference(
+            loan.name, loan.disbursement_journal_entry
+        )
+        journal.append(
+            "accounts",
+            _account_row(
+                settings.staff_loan_receivable_account,
+                credit=repayment.applied_amount,
+                reference_type=reference_type,
+                reference_name=reference_name,
+                party_type="Employee",
+                party=loan.employee,
+            ),
+        )
     if flt(repayment.credit_amount, 2):
         journal.append(
             "accounts",

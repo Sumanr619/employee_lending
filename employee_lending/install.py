@@ -14,6 +14,7 @@ SIDEBAR_ITEMS = (
     ("Employee Loan Legacy Transaction", "Link", "DocType", "Employee Loan Legacy Transaction", 1),
     ("Loan Credits", "Section Break", "DocType", None, 0),
     ("Employee Loan Credit", "Link", "DocType", "Employee Loan Credit", 1),
+    ("Employee Loan Credit Receipt", "Link", "DocType", "Employee Loan Credit Receipt", 1),
     ("Employee Loan Credit Adjustment", "Link", "DocType", "Employee Loan Credit Adjustment", 1),
     ("Report", "Section Break", "DocType", None, 0),
     ("Loan Ledger", "Link", "Report", "Employee Loan Ledger", 1),

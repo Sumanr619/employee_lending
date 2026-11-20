@@ -10,6 +10,7 @@ from employee_lending.employee_lending.doctype.employee_loan_credit.employee_loa
     delete_unused_repayment_credit,
 )
 from employee_lending.employee_lending.utils import split_repayment
+from employee_lending.employee_lending.balance_reporting import allocate_receipt
 
 
 class EmployeeLoanRepayment(Document):
@@ -42,7 +43,8 @@ class EmployeeLoanRepayment(Document):
                 or _("Overpayment from employee loan repayment {0}").format(self.name),
             )
             self.db_set("employee_credit", credit_name, update_modified=False)
-        self.update_loan_balances(direction=1)
+        if flt(self.applied_amount, 2):
+            self.update_loan_balances(direction=1)
 
     def on_cancel(self):
         credit_name = self.employee_credit
@@ -59,7 +61,8 @@ class EmployeeLoanRepayment(Document):
                     )
                 )
         cancel_linked_journal_entry(self.journal_entry)
-        self.update_loan_balances(direction=-1)
+        if flt(self.applied_amount, 2):
+            self.update_loan_balances(direction=-1)
         if credit_name:
             self.db_set("employee_credit", None, update_modified=False)
             delete_unused_repayment_credit(credit_name)
@@ -93,9 +96,7 @@ class EmployeeLoanRepayment(Document):
                 as_dict=True,
             )
         if not loan or loan.docstatus != 1 or loan.loan_status not in ("Active", "Closed"):
-            frappe.throw(_("Select a submitted active employee loan"))
-        if loan.loan_status == "Closed" and self.docstatus != 2:
-            frappe.throw(_("This employee loan is already closed"))
+            frappe.throw(_("Select a submitted active or closed employee loan"))
         self.employee = loan.employee
         self.employee_name = loan.employee_name
         self.company = loan.company
@@ -106,26 +107,19 @@ class EmployeeLoanRepayment(Document):
         self.total_outstanding_before = loan.total_outstanding
 
     def calculate_split(self):
-        if flt(self.repayment_amount) <= 0:
-            frappe.throw(_("Repayment Amount must be greater than zero"))
-        if flt(self.total_outstanding_before) <= 0:
-            frappe.throw(_("The selected loan has no outstanding balance"))
-        received_amount = flt(self.repayment_amount, 2)
-        applied_amount = min(received_amount, flt(self.total_outstanding_before, 2))
         try:
-            split = split_repayment(
-                applied_amount,
-                self.flat_interest_rate,
-                self.principal_outstanding_before,
-                self.unearned_interest_before,
+            allocation = allocate_receipt(
+                self.repayment_amount, self.total_outstanding_before,
+                self.flat_interest_rate, self.principal_outstanding_before,
+                self.unearned_interest_before, split_repayment,
             )
         except ValueError as exc:
             frappe.throw(str(exc))
-        self.repayment_amount = received_amount
-        self.applied_amount = float(split.amount)
-        self.credit_amount = flt(received_amount - applied_amount, 2)
-        self.principal_component = float(split.principal)
-        self.interest_component = float(split.interest)
+        self.repayment_amount = allocation["received"]
+        self.applied_amount = allocation["applied"]
+        self.credit_amount = allocation["credit"]
+        self.principal_component = allocation["principal"]
+        self.interest_component = allocation["interest"]
         self.principal_outstanding_after = flt(self.principal_outstanding_before - self.principal_component, 2)
         self.unearned_interest_after = flt(self.unearned_interest_before - self.interest_component, 2)
         self.total_outstanding_after = flt(self.principal_outstanding_after + self.unearned_interest_after, 2)
@@ -216,30 +210,31 @@ def rebuild_schedule_status(loan_application, total_repaid):
 def get_active_loan_details(loan_application):
     loan = frappe.get_doc("Employee Loan Application", loan_application)
     loan.check_permission("read")
-    if loan.docstatus != 1 or loan.loan_status != "Active":
-        frappe.throw(_("Select an active submitted employee loan"))
+    if loan.docstatus != 1 or loan.loan_status not in ("Active", "Closed"):
+        frappe.throw(_("Select a submitted active or closed employee loan"))
     settings = get_settings()
     amount = min(flt(loan.fortnightly_repayment, 2), flt(loan.total_outstanding, 2))
-    split = split_repayment(
-        amount, loan.flat_interest_rate, loan.principal_outstanding, loan.unearned_interest_outstanding
-    )
+    allocation = allocate_receipt(
+        amount, loan.total_outstanding, loan.flat_interest_rate,
+        loan.principal_outstanding, loan.unearned_interest_outstanding, split_repayment,
+    ) if amount > 0 else {"applied": 0, "principal": 0, "interest": 0}
     return {
         "employee": loan.employee,
         "employee_name": loan.employee_name,
         "company": loan.company,
         "flat_interest_rate": loan.flat_interest_rate,
         "normal_fortnightly_repayment": loan.fortnightly_repayment,
-        "repayment_amount": float(split.amount),
-        "applied_amount": float(split.amount),
+        "repayment_amount": allocation["applied"],
+        "applied_amount": allocation["applied"],
         "credit_amount": 0,
-        "principal_component": float(split.principal),
-        "interest_component": float(split.interest),
+        "principal_component": allocation["principal"],
+        "interest_component": allocation["interest"],
         "principal_outstanding_before": loan.principal_outstanding,
         "unearned_interest_before": loan.unearned_interest_outstanding,
         "total_outstanding_before": loan.total_outstanding,
-        "principal_outstanding_after": flt(loan.principal_outstanding - float(split.principal), 2),
-        "unearned_interest_after": flt(loan.unearned_interest_outstanding - float(split.interest), 2),
-        "total_outstanding_after": flt(loan.total_outstanding - float(split.amount), 2),
+        "principal_outstanding_after": flt(loan.principal_outstanding - allocation["principal"], 2),
+        "unearned_interest_after": flt(loan.unearned_interest_outstanding - allocation["interest"], 2),
+        "total_outstanding_after": flt(loan.total_outstanding - allocation["applied"], 2),
         "bank_or_clearing_account": settings.repayment_bank_or_clearing_account,
         "allow_account_override": settings.allow_account_override,
     }

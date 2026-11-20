@@ -1,7 +1,7 @@
 frappe.ui.form.on("Employee Loan Repayment Batch", {
     setup(frm) {
         frm.set_query("loan_application", "repayments", () => ({
-            filters: { docstatus: 1, loan_status: "Active", company: frm.doc.company },
+            filters: { docstatus: 1, loan_status: ["in", ["Active", "Closed"]], company: frm.doc.company },
         }));
         frm.set_query("bank_or_clearing_account", () => ({
             filters: { company: frm.doc.company, is_group: 0, disabled: 0 },
@@ -64,7 +64,7 @@ frappe.ui.form.on("Employee Loan Repayment Batch Item", {
         const amount = flt(row.repayment_amount, 2);
         const rate = flt(row.flat_interest_rate);
         const outstanding = flt(row.total_outstanding_before, 2);
-        if (!amount || !outstanding) return;
+        if (!amount) return;
         const applied = Math.min(amount, outstanding);
         const credit = flt(Math.max(0, amount - applied), 2);
         const principalOutstanding = flt(row.principal_outstanding_before, 2);
